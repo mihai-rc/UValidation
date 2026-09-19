@@ -145,6 +145,15 @@ namespace UValidation.Tests
             }
         }
 
+        [Test]
+        public void IsSceneValidAtPath_NewSceneAsset_ReturnsTrue()
+        {
+            const string unsavedScenePath = "Assets/__UValidation_NewScene__.unity";
+
+            Assert.IsTrue(ValidationHelper.IsSceneValidAtPath(unsavedScenePath, false),
+                "A scene must be allowed through validation before its asset exists on the first save.");
+        }
+
         private class CycleNode
         {
             [IsValid] public CycleNode Next;

@@ -59,6 +59,13 @@ namespace UValidation.Editor
         /// <returns> True if the scene is valid; otherwise, false. </returns>
         public static bool IsSceneValidAtPath(string scenePath, bool reportError)
         {
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath) == null)
+            {
+                // A new scene does not exist as an asset when Unity invokes OnWillSaveAssets
+                // for its first save, so it cannot be resolved by path yet.
+                return true;
+            }
+
             var scene = SceneManager.GetSceneByPath(scenePath);
             return IsSceneValid(ref scene, reportError);
         }

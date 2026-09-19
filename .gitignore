@@ -16,6 +16,10 @@
 [Bb]uild/
 [Bb]uilds/
 
+# Sandbox settings are regenerated locally; retain only the required Unity version.
+/UValidationSandbox/[Pp]rojectSettings/*
+!/UValidationSandbox/[Pp]rojectSettings/ProjectVersion.txt
+
 # Asset meta data should only be ignored when the corresponding asset is also ignored
 !/UValidationSandbox/[Aa]ssets/**/*.meta
 
