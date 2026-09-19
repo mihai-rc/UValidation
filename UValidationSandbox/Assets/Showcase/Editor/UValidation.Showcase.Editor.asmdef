@@ -1,0 +1,19 @@
+{
+    "name": "UValidation.Showcase.Editor",
+    "rootNamespace": "UValidation.Showcase.Editor",
+    "references": [
+        "UValidation.Showcase",
+        "UValidation.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
