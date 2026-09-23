@@ -17,6 +17,34 @@ attribute placements.
 Green/valid values intentionally coexist with red/error and yellow/warning values, so the scene is
 intentionally invalid when editor validation is enabled.
 
+## Inheritance chains
+
+Open `Assets/Scenes/ValidationInheritanceShowcase.unity`. Every numbered object has the same
+three-level component hierarchy:
+
+`InheritanceShowcaseBase -> InheritanceShowcaseMiddle -> InheritanceShowcase`
+
+The base declares a private `[NotNull]` reference and a `[field: SerializeField, NotEmpty]`
+auto-property. The middle class declares a private `[NotEmpty]` string, and the concrete class
+declares a private `[NotNull]` reference. Each invalid example changes exactly one value.
+
+| Example | Expected result | Current result before the inheritance fix |
+| --- | --- | --- |
+| `01 - All Levels Valid` | Pass | Pass |
+| `02 - Base Private Field Missing` | Fail | Incorrectly passes |
+| `03 - Middle Private Field Empty` | Fail | Incorrectly passes |
+| `04 - Derived Private Field Missing` | Fail | Fail |
+| `05 - Base Auto-Property Empty` | Fail | Incorrectly passes |
+
+This exposes the difference between the Inspector, which can display inherited serialized fields,
+and the reflection validator, which currently skips inherited private fields. Select each example
+to compare its field messages with its hierarchy validation status.
+
+Run `UValidation.Showcase.Tests.InheritanceShowcaseTests` in the EditMode Test Runner. The five
+cases assert the intended behavior, so the three inherited-field cases intentionally remain red
+until field discovery is fixed. The tests verify the saved example values first and load the scene
+as a preview, preserving the user's open scenes.
+
 ## ScriptableObject assets
 
 Browse `Assets/Showcase/ScriptableObjects` in the Project window. The folder contains one valid
@@ -44,6 +72,10 @@ and selects the overview object.
 Use `HighTower > UValidation > Rebuild ScriptableObject Showcase` to recreate every generated
 `.asset` file with deterministic values. The builder also temporarily disables save validation and
 selects the valid asset when it finishes.
+
+Use `HighTower > UValidation > Rebuild Inheritance Showcase` to regenerate the inheritance scene.
+Close that scene before rebuilding it. The builder preserves other open scenes and restores the
+validation preference after saving the intentionally invalid examples.
 
 ## Expected semantics
 

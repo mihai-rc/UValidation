@@ -19,9 +19,11 @@ namespace UValidation.Showcase.Tests
         public void ShowcaseAsset_HasExpectedValidationResult(string fileName, bool expectedResult)
         {
             var path = $"{k_ShowcaseFolderPath}/{fileName}";
+
             Assert.IsNotNull(
                 AssetDatabase.LoadAssetAtPath<ScriptableObjectValidationShowcase>(path),
                 $"The ScriptableObject showcase asset is missing at '{path}'.");
+
             Assert.AreEqual(
                 expectedResult,
                 ValidationHelper.IsScriptableObjectValidAtPath(path, false));
@@ -31,6 +33,7 @@ namespace UValidation.Showcase.Tests
         public void ShowcaseReferenceAsset_Exists()
         {
             var path = k_ShowcaseFolderPath + "/_Shared/Assigned Reference.asset";
+
             Assert.IsNotNull(
                 AssetDatabase.LoadAssetAtPath<ScriptableObjectShowcaseReference>(path),
                 $"The shared reference asset is missing at '{path}'.");
