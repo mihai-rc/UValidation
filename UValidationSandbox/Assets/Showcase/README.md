@@ -28,22 +28,21 @@ The base declares a private `[NotNull]` reference and a `[field: SerializeField,
 auto-property. The middle class declares a private `[NotEmpty]` string, and the concrete class
 declares a private `[NotNull]` reference. Each invalid example changes exactly one value.
 
-| Example | Expected result | Current result before the inheritance fix |
-| --- | --- | --- |
-| `01 - All Levels Valid` | Pass | Pass |
-| `02 - Base Private Field Missing` | Fail | Incorrectly passes |
-| `03 - Middle Private Field Empty` | Fail | Incorrectly passes |
-| `04 - Derived Private Field Missing` | Fail | Fail |
-| `05 - Base Auto-Property Empty` | Fail | Incorrectly passes |
+| Example | Expected result |
+| --- | --- |
+| `01 - All Levels Valid` | Pass |
+| `02 - Base Private Field Missing` | Fail |
+| `03 - Middle Private Field Empty` | Fail |
+| `04 - Derived Private Field Missing` | Fail |
+| `05 - Base Auto-Property Empty` | Fail |
 
-This exposes the difference between the Inspector, which can display inherited serialized fields,
-and the reflection validator, which currently skips inherited private fields. Select each example
-to compare its field messages with its hierarchy validation status.
+Validation checks attributed fields at every inheritance level, including private fields and
+serialized auto-property backing fields. Each field is checked once. Select each example to
+compare its field messages with its hierarchy validation status.
 
 Run `UValidation.Showcase.Tests.InheritanceShowcaseTests` in the EditMode Test Runner. The five
-cases assert the intended behavior, so the three inherited-field cases intentionally remain red
-until field discovery is fixed. The tests verify the saved example values first and load the scene
-as a preview, preserving the user's open scenes.
+cases assert the results above and should all pass. The tests verify the saved example values
+first and load the scene as a preview, preserving the user's open scenes.
 
 ## ScriptableObject assets
 

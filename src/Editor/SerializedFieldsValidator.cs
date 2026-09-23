@@ -129,28 +129,33 @@ namespace UValidation.Editor
             }
 
             var handlers = new List<FieldValidationData>();
-            var fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-
-            foreach (var field in fields)
+            for (var currentType = type; currentType != null; currentType = currentType.BaseType)
             {
-                var notNull = field.GetCustomAttribute<NotNullAttribute>();
-                var notEmpty = field.GetCustomAttribute<NotEmptyAttribute>();
-                var noNullItems = field.GetCustomAttribute<HasNoNullsAttribute>();
-                var noEmptyItems = field.GetCustomAttribute<HasNoEmptiesAttribute>();
-                var isValid = field.GetCustomAttribute<IsValidAttribute>();
+                // Read each declaration once, including private fields skipped by inherited lookup.
+                var fields = currentType.GetFields(BindingFlags.Instance | BindingFlags.Public |
+                                                  BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
 
-                if (notNull != null || notEmpty != null || noNullItems != null || noEmptyItems != null || isValid != null)
+                foreach (var field in fields)
                 {
-                    handlers.Add(new FieldValidationData
+                    var notNull = field.GetCustomAttribute<NotNullAttribute>();
+                    var notEmpty = field.GetCustomAttribute<NotEmptyAttribute>();
+                    var noNullItems = field.GetCustomAttribute<HasNoNullsAttribute>();
+                    var noEmptyItems = field.GetCustomAttribute<HasNoEmptiesAttribute>();
+                    var isValid = field.GetCustomAttribute<IsValidAttribute>();
+
+                    if (notNull != null || notEmpty != null || noNullItems != null || noEmptyItems != null || isValid != null)
                     {
-                        Field = field,
-                        CleanName = GetCleanName(field.Name),
-                        NotNull = notNull,
-                        NotEmpty = notEmpty,
-                        HasNoNulls = noNullItems,
-                        HasNoEmpties = noEmptyItems,
-                        IsValid = isValid
-                    });
+                        handlers.Add(new FieldValidationData
+                        {
+                            Field = field,
+                            CleanName = GetCleanName(field.Name),
+                            NotNull = notNull,
+                            NotEmpty = notEmpty,
+                            HasNoNulls = noNullItems,
+                            HasNoEmpties = noEmptyItems,
+                            IsValid = isValid
+                        });
+                    }
                 }
             }
 
