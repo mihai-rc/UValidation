@@ -8,6 +8,7 @@ namespace UValidation
         /// <summary>
         /// Reports any validation failures.
         /// </summary>
-        void Validate(ref Validation validation);
+        /// <param name="validation"> The validation instance that accumulates failures. </param>
+        void Validate(Validation validation);
     }
 }

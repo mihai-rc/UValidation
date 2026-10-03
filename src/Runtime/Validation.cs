@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using UnityEngine;
 using UnityEngine.Pool;
@@ -11,12 +12,9 @@ namespace UValidation
     /// Provides methods to assert validation rules.
     /// </summary>
     /// <remarks>
-    /// Wrap usage in <c>try / finally</c> and call <see cref="Dispose"/> in the finally
-    /// (the C# <c>using</c> statement does not compose with passing the instance by <c>ref</c>
-    /// to validation methods). Call <see cref="Report"/> before disposal to log any failures.
-    /// Until the first failure is recorded, no allocations occur.
+    /// Wrap usage in a <c>using</c> statement and call <see cref="Report"/> before disposal to log any failures.
     /// </remarks>
-    public ref struct Validation
+    public sealed class Validation : IDisposable
     {
         private const string k_ConditionFailed = "[Validation] Condition failed!";
         private const string k_PredicateNull = "[Validation] Predicate was null!";
@@ -37,19 +35,34 @@ namespace UValidation
         private List<string> m_Reasons;
         private StringBuilder m_ErrorBuilder;
         private bool m_Failed;
+        private bool m_Disposed;
 
         /// <summary>
         /// Indicates whether all validation checks have passed.
         /// </summary>
-        public bool Passed => !m_Failed;
+        public bool Passed
+        {
+            get
+            {
+                ThrowIfDisposed();
+                return !m_Failed;
+            }
+        }
 
         /// <summary>
-        /// Indicates whether at list one validation had failed.
+        /// Indicates whether at least one validation has failed.
         /// </summary>
-        public bool Failed => m_Failed;
+        public bool Failed
+        {
+            get
+            {
+                ThrowIfDisposed();
+                return m_Failed;
+            }
+        }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="Validation"/> struct.
+        /// Initializes a new instance of the <see cref="Validation"/> class.
         /// </summary>
         /// <param name="context"> The Unity object in the context which the validation happens. </param>
         public Validation(UnityEngine.Object context = null)
@@ -58,6 +71,7 @@ namespace UValidation
             m_Reasons = null;
             m_ErrorBuilder = null;
             m_Failed = false;
+            m_Disposed = false;
         }
 
         /// <summary>
@@ -65,6 +79,8 @@ namespace UValidation
         /// </summary>
         public void Report()
         {
+            ThrowIfDisposed();
+
             if (m_Reasons == null)
             {
                 return;
@@ -84,17 +100,23 @@ namespace UValidation
 
         /// <summary>
         /// Releases any pooled state rented while recording failures.
-        /// Safe to call multiple times and on a default-constructed instance.
+        /// Safe to call multiple times.
         /// </summary>
         public void Dispose()
         {
-            if (m_Reasons == null)
+            if (m_Disposed)
             {
                 return;
             }
 
-            ListPool<string>.Release(m_Reasons);
-            m_Reasons = null;
+            m_Disposed = true;
+
+            if (m_Reasons != null)
+            {
+                ListPool<string>.Release(m_Reasons);
+                m_Reasons = null;
+            }
+
             m_ErrorBuilder = null;
         }
 
@@ -109,12 +131,21 @@ namespace UValidation
         /// <param name="file"> The path to the file in which the validation is performed. </param>
         /// <param name="function"> The name of the function that performs the validation. </param>
         /// <param name="line"> The line at which the validation was performed. </param>
-        internal void PassIfTrue<T>(string variable, T ownerRef, Func<T, bool> assertFn, string file, string function, int line)
+        /// <returns> The validation instance for continued fluent chaining. </returns>
+        public Validation IsTrue<T>(
+            string variable,
+            T ownerRef,
+            Func<T, bool> assertFn,
+            [CallerFilePath] string file = "",
+            [CallerMemberName] string function = "",
+            [CallerLineNumber] int line = 0)
         {
+            ThrowIfDisposed();
+
             if (assertFn == null)
             {
                 Fail(k_PredicateNull, variable, file, function, line);
-                return;
+                return this;
             }
 
             bool validationPassed = false;
@@ -134,6 +165,8 @@ namespace UValidation
             {
                 Fail(k_ConditionFailed, variable, file, function, line, exception);
             }
+
+            return this;
         }
 
         /// <summary>
@@ -144,20 +177,28 @@ namespace UValidation
         /// <param name="file"> The path to the file in which the validation is performed. </param>
         /// <param name="function"> The name of the function that performs the validation. </param>
         /// <param name="line"> The line at which the validation was performed. </param>
-        internal void PassIfNotNull(string variable, object variableRef, string file, string function, int line)
+        /// <returns> The validation instance for continued fluent chaining. </returns>
+        public Validation IsNotNull(
+            string variable,
+            object variableRef,
+            [CallerFilePath] string file = "",
+            [CallerMemberName] string function = "",
+            [CallerLineNumber] int line = 0)
         {
+            ThrowIfDisposed();
+
             if (variableRef is UnityEngine.Object unityObject)
             {
-                PassIfNotNull(variable, unityObject, file, function, line);
-                return;
+                return IsNotNull(variable, unityObject, file, function, line);
             }
 
             if (variableRef != null)
             {
-                return;
+                return this;
             }
 
             Fail(k_NullReference, variable, file, function, line);
+            return this;
         }
 
         /// <summary>
@@ -168,14 +209,23 @@ namespace UValidation
         /// <param name="file"> The path to the file in which the validation is performed. </param>
         /// <param name="function"> The name of the function that performs the validation. </param>
         /// <param name="line"> The line at which the validation was performed. </param>
-        internal void PassIfNotNull(string variable, UnityEngine.Object variableRef, string file, string function, int line)
+        /// <returns> The validation instance for continued fluent chaining. </returns>
+        public Validation IsNotNull(
+            string variable,
+            UnityEngine.Object variableRef,
+            [CallerFilePath] string file = "",
+            [CallerMemberName] string function = "",
+            [CallerLineNumber] int line = 0)
         {
+            ThrowIfDisposed();
+
             if (variableRef != null)
             {
-                return;
+                return this;
             }
 
             Fail(k_NullReference, variable, file, function, line);
+            return this;
         }
 
         /// <summary>
@@ -186,14 +236,23 @@ namespace UValidation
         /// <param name="file"> The path to the file in which the validation is performed. </param>
         /// <param name="function"> The name of the function that performs the validation. </param>
         /// <param name="line"> The line at which the validation was performed. </param>
-        internal void PassIfNotNull(string variable, IEnumerable<object> variableRef, string file, string function, int line)
+        /// <returns> The validation instance for continued fluent chaining. </returns>
+        public Validation IsNotNull(
+            string variable,
+            IEnumerable<object> variableRef,
+            [CallerFilePath] string file = "",
+            [CallerMemberName] string function = "",
+            [CallerLineNumber] int line = 0)
         {
+            ThrowIfDisposed();
+
             if (variableRef != null)
             {
-                return;
+                return this;
             }
 
             Fail(k_NullReference, variable, file, function, line);
+            return this;
         }
 
         /// <summary>
@@ -204,14 +263,23 @@ namespace UValidation
         /// <param name="file"> The path to the file in which the validation is performed. </param>
         /// <param name="function"> The name of the function that performs the validation. </param>
         /// <param name="line"> The line at which the validation was performed. </param>
-        internal void PassIfNotEmpty(string variable, string variableRef, string file, string function, int line)
+        /// <returns> The validation instance for continued fluent chaining. </returns>
+        public Validation IsNotEmpty(
+            string variable,
+            string variableRef,
+            [CallerFilePath] string file = "",
+            [CallerMemberName] string function = "",
+            [CallerLineNumber] int line = 0)
         {
+            ThrowIfDisposed();
+
             if (!string.IsNullOrEmpty(variableRef))
             {
-                return;
+                return this;
             }
 
             Fail(k_EmptyString, variable, file, function, line);
+            return this;
         }
 
         /// <summary>
@@ -222,14 +290,23 @@ namespace UValidation
         /// <param name="file"> The path to the file in which the validation is performed. </param>
         /// <param name="function"> The name of the function that performs the validation. </param>
         /// <param name="line"> The line at which the validation was performed. </param>
-        internal void PassIfNotEmpty(string variable, IEnumerable<object> variableRef, string file, string function, int line)
+        /// <returns> The validation instance for continued fluent chaining. </returns>
+        public Validation IsNotEmpty(
+            string variable,
+            IEnumerable<object> variableRef,
+            [CallerFilePath] string file = "",
+            [CallerMemberName] string function = "",
+            [CallerLineNumber] int line = 0)
         {
+            ThrowIfDisposed();
+
             if (variableRef != null && variableRef.Any())
             {
-                return;
+                return this;
             }
 
             Fail(k_EmptyCollection, variable, file, function, line);
+            return this;
         }
 
         /// <summary>
@@ -240,32 +317,51 @@ namespace UValidation
         /// <param name="file"> The path to the file in which the validation is performed. </param>
         /// <param name="function"> The name of the function that performs the validation. </param>
         /// <param name="line"> The line at which the validation was performed. </param>
-        internal void PassIfNoNullElements(string variable, IEnumerable<object> variableRef, string file, string function, int line)
+        /// <returns> The validation instance for continued fluent chaining. </returns>
+        public Validation HasNoNulls(
+            string variable,
+            IEnumerable<object> variableRef,
+            [CallerFilePath] string file = "",
+            [CallerMemberName] string function = "",
+            [CallerLineNumber] int line = 0)
         {
+            ThrowIfDisposed();
+
             if (variableRef != null && variableRef.All(o => o != null))
             {
-                return;
+                return this;
             }
 
             Fail(k_CollectionWithNullItems, variable, file, function, line);
+            return this;
         }
 
         /// <summary>
-        /// Checks if the specified collection contains no null items.
+        /// Checks if the specified collection contains no null items, honoring Unity's
+        /// fake-null semantics for destroyed <see cref="UnityEngine.Object"/> elements.
         /// </summary>
         /// <param name="variable"> The name of the variable being validated. </param>
         /// <param name="variableRef"> The reference being validated. </param>
         /// <param name="file"> The path to the file in which the validation is performed. </param>
         /// <param name="function"> The name of the function that performs the validation. </param>
         /// <param name="line"> The line at which the validation was performed. </param>
-        internal void PassIfNoNullElements(string variable, IEnumerable<UnityEngine.Object> variableRef, string file, string function, int line)
+        /// <returns> The validation instance for continued fluent chaining. </returns>
+        public Validation HasNoNulls(
+            string variable,
+            IEnumerable<UnityEngine.Object> variableRef,
+            [CallerFilePath] string file = "",
+            [CallerMemberName] string function = "",
+            [CallerLineNumber] int line = 0)
         {
+            ThrowIfDisposed();
+
             if (variableRef != null && variableRef.All(o => o != null))
             {
-                return;
+                return this;
             }
 
             Fail(k_CollectionWithNullItems, variable, file, function, line);
+            return this;
         }
 
         /// <summary>
@@ -276,14 +372,23 @@ namespace UValidation
         /// <param name="file"> The path to the file in which the validation is performed. </param>
         /// <param name="function"> The name of the function that performs the validation. </param>
         /// <param name="line"> The line at which the validation was performed. </param>
-        internal void PassIfNoEmptyStrings(string variable, IEnumerable<string> variableRef, string file, string function, int line)
+        /// <returns> The validation instance for continued fluent chaining. </returns>
+        public Validation HasNoEmpties(
+            string variable,
+            IEnumerable<string> variableRef,
+            [CallerFilePath] string file = "",
+            [CallerMemberName] string function = "",
+            [CallerLineNumber] int line = 0)
         {
+            ThrowIfDisposed();
+
             if (variableRef != null && variableRef.All(s => !string.IsNullOrEmpty(s)))
             {
-                return;
+                return this;
             }
 
             Fail(k_CollectionWithEmptyStrings, variable, file, function, line);
+            return this;
         }
 
         private void Fail(string reason, string variable, string file, string function, int line, string exception = null)
@@ -291,7 +396,6 @@ namespace UValidation
             m_Reasons ??= ListPool<string>.Get();
             m_ErrorBuilder ??= new StringBuilder();
             m_ErrorBuilder.Clear();
-
             m_ErrorBuilder.AppendLine(reason);
 
             if (m_Context != null)
@@ -316,6 +420,14 @@ namespace UValidation
 
             m_Reasons.Add(m_ErrorBuilder.ToString());
             m_Failed = true;
+        }
+
+        private void ThrowIfDisposed()
+        {
+            if (m_Disposed)
+            {
+                throw new ObjectDisposedException(nameof(Validation));
+            }
         }
     }
 }

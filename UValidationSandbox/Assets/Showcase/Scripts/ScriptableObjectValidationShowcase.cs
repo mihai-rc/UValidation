@@ -41,7 +41,7 @@ namespace UValidation.Showcase
         [SerializeField] private int m_CurrentValue = 1;
 
         /// <inheritdoc />
-        public void Validate(ref Validation validation)
+        public void Validate(Validation validation)
         {
             validation.IsTrue(nameof(m_CurrentValue), this,
                 asset => asset.m_CurrentValue >= asset.m_MinimumValue);

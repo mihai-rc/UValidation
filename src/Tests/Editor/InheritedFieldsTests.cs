@@ -131,24 +131,17 @@ namespace UValidation.Tests
 
         private static void AssertFailuresReportedOnce(UnityEngine.Object target, params string[] fieldNames)
         {
-            var validation = new Validation(target);
-            try
-            {
-                SerializedFieldsValidator.ValidateAttributes(target, ref validation);
-                Assert.That(validation.Failed, Is.True);
+            using var validation = new Validation(target);
+            SerializedFieldsValidator.ValidateAttributes(target, validation);
+            Assert.That(validation.Failed, Is.True);
 
-                foreach (var fieldName in fieldNames)
-                {
-                    LogAssert.Expect(LogType.Error, new Regex(@" - Variable: " + Regex.Escape(fieldName) + @"\r?\n"));
-                }
-
-                validation.Report();
-                LogAssert.NoUnexpectedReceived();
-            }
-            finally
+            foreach (var fieldName in fieldNames)
             {
-                validation.Dispose();
+                LogAssert.Expect(LogType.Error, new Regex(@" - Variable: " + Regex.Escape(fieldName) + @"\r?\n"));
             }
+
+            validation.Report();
+            LogAssert.NoUnexpectedReceived();
         }
     }
 }

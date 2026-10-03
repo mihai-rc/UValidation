@@ -22,7 +22,7 @@ namespace UValidation.Showcase
             [SerializeField] private int m_PositiveValue = 1;
 
             /// <inheritdoc />
-            public void Validate(ref Validation validation)
+            public void Validate(Validation validation)
             {
                 validation.IsTrue(nameof(m_PositiveValue), this, data => data.m_PositiveValue > 0);
             }

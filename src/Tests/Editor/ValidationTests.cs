@@ -14,34 +14,20 @@ namespace UValidation.Tests
         [Test]
         public void IsTrue_NullPredicate_RecordsFailure()
         {
-            var validation = new Validation();
-            try
-            {
-                validation.IsTrue<object>("x", null, null);
-                Assert.IsTrue(validation.Failed, "Null predicate should fail validation.");
-            }
-            finally
-            {
-                validation.Dispose();
-            }
+            using var validation = new Validation();
+            validation.IsTrue<object>("x", null, null);
+            Assert.IsTrue(validation.Failed, "Null predicate should fail validation.");
         }
 
         [Test]
         public void IsTrue_PredicateThrows_ExceptionAppearsInReport()
         {
-            var validation = new Validation();
-            try
-            {
-                validation.IsTrue("x", new object(), _ => throw new InvalidOperationException("PREDICATE_BOOM"));
-                Assert.IsTrue(validation.Failed);
+            using var validation = new Validation();
+            validation.IsTrue("x", new object(), _ => throw new InvalidOperationException("PREDICATE_BOOM"));
+            Assert.IsTrue(validation.Failed);
 
-                LogAssert.Expect(LogType.Error, new Regex("PREDICATE_BOOM"));
-                validation.Report();
-            }
-            finally
-            {
-                validation.Dispose();
-            }
+            LogAssert.Expect(LogType.Error, new Regex("PREDICATE_BOOM"));
+            validation.Report();
         }
 
         [Test]
@@ -51,34 +37,20 @@ namespace UValidation.Tests
             object boxed = go;
             UnityEngine.Object.DestroyImmediate(go);
 
-            var validation = new Validation();
-            try
-            {
-                validation.IsNotNull("destroyedGO", boxed);
-                Assert.IsTrue(validation.Failed,
-                    "Destroyed Unity object should be detected even when upcast to object.");
-            }
-            finally
-            {
-                validation.Dispose();
-            }
+            using var validation = new Validation();
+            validation.IsNotNull("destroyedGO", boxed);
+            Assert.IsTrue(validation.Failed,
+                "Destroyed Unity object should be detected even when upcast to object.");
         }
 
         [Test]
         public void HasNoNulls_NullObjectCollection_FailsCleanly()
         {
-            var validation = new Validation();
-            try
-            {
-                IEnumerable<object> nullList = null;
-                // If this throws, the test fails — that's the regression we're guarding against.
-                validation.HasNoNulls("x", nullList);
-                Assert.IsTrue(validation.Failed);
-            }
-            finally
-            {
-                validation.Dispose();
-            }
+            using var validation = new Validation();
+            IEnumerable<object> nullList = null;
+            // If this throws, the test fails — that's the regression we're guarding against.
+            validation.HasNoNulls("x", nullList);
+            Assert.IsTrue(validation.Failed);
         }
 
         [Test]
@@ -89,7 +61,7 @@ namespace UValidation.Tests
             UnityEngine.Object.DestroyImmediate(dead);
 
             var list = new UnityEngine.Object[] { alive, dead };
-            var validation = new Validation();
+            using var validation = new Validation();
             try
             {
                 validation.HasNoNulls("list", (IEnumerable<UnityEngine.Object>)list);
@@ -98,7 +70,6 @@ namespace UValidation.Tests
             }
             finally
             {
-                validation.Dispose();
                 UnityEngine.Object.DestroyImmediate(alive);
             }
         }
@@ -106,15 +77,8 @@ namespace UValidation.Tests
         [Test]
         public void HappyPath_NoChecksRecorded_DisposeIsSafe()
         {
-            var validation = new Validation();
-            try
-            {
-                Assert.IsTrue(validation.Passed);
-            }
-            finally
-            {
-                validation.Dispose();
-            }
+            using var validation = new Validation();
+            Assert.IsTrue(validation.Passed);
 
             // Idempotent dispose on a never-failed validation must not throw, even called twice.
             var v2 = new Validation();
@@ -123,26 +87,15 @@ namespace UValidation.Tests
         }
 
         [Test]
-        public void DefaultConstruction_IsOperationallySafe()
+        public void AliasesShareFailureState()
         {
-            Validation v = default;
-            Assert.IsTrue(v.Passed);
-            v.Dispose();
+            using var validation = new Validation();
+            var alias = validation;
 
-            Validation v2 = default;
-            try
-            {
-                v2.IsNotNull("nonNullValue", new object());
-                Assert.IsTrue(v2.Passed, "Non-null check should not record failure on default(Validation).");
+            alias.IsNotNull("nullValue", (object)null);
 
-                v2.IsNotNull("nullValue", (object)null);
-                Assert.IsTrue(v2.Failed,
-                    "Null check on default(Validation) should lazy-rent and record failure cleanly.");
-            }
-            finally
-            {
-                v2.Dispose();
-            }
+            Assert.IsTrue(validation.Failed,
+                "Every alias should observe failures recorded through the same validation instance.");
         }
 
         [Test]
@@ -178,15 +131,8 @@ namespace UValidation.Tests
                 var host = go.AddComponent<CycleHost>();
                 host.Root = a;
 
-                var validation = new Validation(host);
-                try
-                {
-                    SerializedFieldsValidator.ValidateAttributes(host, ref validation);
-                }
-                finally
-                {
-                    validation.Dispose();
-                }
+                using var validation = new Validation(host);
+                SerializedFieldsValidator.ValidateAttributes(host, validation);
             }
             finally
             {

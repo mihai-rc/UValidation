@@ -29,7 +29,7 @@ namespace UValidation.Editor
         /// <summary>
         /// Reads through all fields of the target and applies validations if they are
         /// </summary>
-        public static void ValidateAttributes(UnityEngine.Object target, ref Validation validation)
+        public static void ValidateAttributes(UnityEngine.Object target, Validation validation)
         {
             if (target == null)
             {
@@ -39,7 +39,7 @@ namespace UValidation.Editor
             var visited = HashSetPool<object>.Get();
             try
             {
-                ValidateAttributesInternal(target, ref validation, visited);
+                ValidateAttributesInternal(target, validation, visited);
             }
             finally
             {
@@ -47,7 +47,7 @@ namespace UValidation.Editor
             }
         }
 
-        private static void ValidateAttributesInternal(UnityEngine.Object target, ref Validation validation, HashSet<object> visited)
+        private static void ValidateAttributesInternal(UnityEngine.Object target, Validation validation, HashSet<object> visited)
         {
             var type = target.GetType();
             var fieldsAttributeData = GetFieldsAttributeData(type);
@@ -55,17 +55,17 @@ namespace UValidation.Editor
             foreach (var data in fieldsAttributeData)
             {
                 var value = data.Field.GetValue(target);
-                ApplyFieldValidation(data, data.CleanName, value, ref validation);
+                ApplyFieldValidation(data, data.CleanName, value, validation);
 
                 if (data.IsValid != null && value != null)
                 {
-                    ValidateNestedObject(value, data.CleanName, ref validation, visited);
+                    ValidateNestedObject(value, data.CleanName, validation, visited);
                 }
             }
 
             if (target is IValidatable validatable)
             {
-                validatable.Validate(ref validation);
+                validatable.Validate(validation);
             }
         }
 
@@ -76,7 +76,7 @@ namespace UValidation.Editor
         /// <param name="parentFieldName">The field name of the parent (used as prefix in error messages).</param>
         /// <param name="validation">The validation context to accumulate failures into.</param>
         /// <param name="visited">Reference-equality set of plain C# objects already visited, to prevent cycles.</param>
-        private static void ValidateNestedObject(object nestedObj, string parentFieldName, ref Validation validation, HashSet<object> visited)
+        private static void ValidateNestedObject(object nestedObj, string parentFieldName, Validation validation, HashSet<object> visited)
         {
             if (nestedObj == null)
             {
@@ -107,17 +107,17 @@ namespace UValidation.Editor
 
                 // Prefix the field name so the error message reads "parentField.childField"
                 var qualifiedName = $"{parentFieldName}.{data.CleanName}";
-                ApplyFieldValidation(data, qualifiedName, value, ref validation);
+                ApplyFieldValidation(data, qualifiedName, value, validation);
 
                 if (data.IsValid != null && value != null)
                 {
-                    ValidateNestedObject(value, qualifiedName, ref validation, visited);
+                    ValidateNestedObject(value, qualifiedName, validation, visited);
                 }
             }
 
             if (nestedObj is IValidatable validatable)
             {
-                validatable.Validate(ref validation);
+                validatable.Validate(validation);
             }
         }
 
@@ -163,7 +163,7 @@ namespace UValidation.Editor
             return handlers;
         }
 
-        private static void ApplyFieldValidation(FieldValidationData data, string fieldName, object value, ref Validation validation)
+        private static void ApplyFieldValidation(FieldValidationData data, string fieldName, object value, Validation validation)
         {
             var fieldType = data.Field.FieldType;
 

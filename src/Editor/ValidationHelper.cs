@@ -118,26 +118,19 @@ namespace UValidation.Editor
         /// </summary>
         /// <param name="script"> The Unity object to validate. </param>
         /// <param name="reportError"> Indicates whether errors should be reported. </param>
-        /// <returns> True if the script passes all generic attribute and custom validations; otherwise, false. </returns>
+        /// <returns> True if the script passes all generic attributes and custom validations; otherwise, false. </returns>
         public static bool IsScriptValid(UnityEngine.Object script, bool reportError)
         {
-            var validation = new Validation(script);
-            try
-            {
-                SerializedFieldsValidator.ValidateAttributes(script, ref validation);
+            using var validation = new Validation(script);
+            SerializedFieldsValidator.ValidateAttributes(script, validation);
 
-                var passed = validation.Passed;
-                if (reportError && !passed)
-                {
-                    validation.Report();
-                }
-
-                return passed;
-            }
-            finally
+            var passed = validation.Passed;
+            if (reportError && !passed)
             {
-                validation.Dispose();
+                validation.Report();
             }
+
+            return passed;
         }
 
         private static bool IsGameObjectValidRecursively(GameObject gameObject, bool reportError)
