@@ -4,6 +4,7 @@
     "references": [
         "UValidation",
         "UValidation.Editor",
+        "UValidation.TestFixtures",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

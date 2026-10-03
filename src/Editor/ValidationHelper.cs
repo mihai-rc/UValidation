@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -20,18 +21,32 @@ namespace UValidation.Editor
         public static bool IsPrefabValidAtPath(string prefabPath, bool reportError)
         {
             var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
-            var prefabRoot = prefabStage != null 
-                ? prefabStage.prefabContentsRoot 
-                : AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
-
-            if (prefabRoot == null)
+            if (prefabStage != null &&
+                string.Equals(prefabStage.assetPath, prefabPath, StringComparison.Ordinal))
             {
-                // If the prefab root is null, it means the prefab it is just being created,
-                // so in order not to block its creation, we'll return true here.
+                return IsGameObjectValidRecursively(prefabStage.prefabContentsRoot, reportError);
+            }
+
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) == null)
+            {
+                // Unity can invoke OnWillSaveAssets before a newly-created prefab is resolvable
+                // by path. Allow that initial save so creation does not deadlock.
                 return true;
             }
 
-            return IsGameObjectValidRecursively(prefabRoot, reportError);
+            GameObject prefabRoot = null;
+            try
+            {
+                prefabRoot = PrefabUtility.LoadPrefabContents(prefabPath);
+                return IsGameObjectValidRecursively(prefabRoot, reportError);
+            }
+            finally
+            {
+                if (prefabRoot != null)
+                {
+                    PrefabUtility.UnloadPrefabContents(prefabRoot);
+                }
+            }
         }
 
         /// <summary>
