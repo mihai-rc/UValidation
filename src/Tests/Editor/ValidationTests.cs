@@ -38,6 +38,11 @@ namespace UValidation.Tests
             [SerializeField, IsValid] private ThrowingNestedData m_Data = new();
         }
 
+        private sealed class EmptyValueCollectionHost : MonoBehaviour
+        {
+            [SerializeField, NotEmpty] private int[] m_Values = Array.Empty<int>();
+        }
+
         [Test]
         public void IsTrue_NullPredicate_RecordsFailure()
         {
@@ -98,6 +103,98 @@ namespace UValidation.Tests
             finally
             {
                 UnityEngine.Object.DestroyImmediate(alive);
+            }
+        }
+
+        [Test]
+        public void IsTrue_BooleanCondition_RecordsFailure()
+        {
+            using var validation = new Validation();
+            validation.IsTrue("condition", false);
+            Assert.IsTrue(validation.Failed);
+        }
+
+        [Test]
+        public void IsTrue_BooleanCondition_Passes()
+        {
+            using var validation = new Validation();
+            validation.IsTrue("condition", true);
+            Assert.IsTrue(validation.Passed);
+        }
+
+        [Test]
+        public void IsNotNull_NullableValue_UsesHasValue()
+        {
+            int? missingValue = null;
+            int? existingValue = 42;
+
+            using (var failedValidation = new Validation())
+            {
+                failedValidation.IsNotNull(nameof(missingValue), missingValue);
+                Assert.IsTrue(failedValidation.Failed);
+            }
+
+            using (var passedValidation = new Validation())
+            {
+                passedValidation.IsNotNull(nameof(existingValue), existingValue);
+                Assert.IsTrue(passedValidation.Passed);
+            }
+        }
+
+        [Test]
+        public void IsNotEmpty_ValueTypeCollections_AreSupported()
+        {
+            using (var failedValidation = new Validation())
+            {
+                failedValidation.IsNotEmpty("values", Array.Empty<int>());
+                Assert.IsTrue(failedValidation.Failed);
+            }
+
+            using (var passedValidation = new Validation())
+            {
+                passedValidation.IsNotEmpty("values", new[] { 1 });
+                Assert.IsTrue(passedValidation.Passed);
+            }
+        }
+
+        [Test]
+        public void HasNoNulls_ObjectArray_DetectsDestroyedUnityObject()
+        {
+            var dead = new GameObject("dead");
+            object[] values = { dead };
+            UnityEngine.Object.DestroyImmediate(dead);
+
+            using var validation = new Validation();
+            validation.HasNoNulls(nameof(values), values);
+            Assert.IsTrue(validation.Failed,
+                "Destroyed Unity objects should be detected through an object collection.");
+        }
+
+        [Test]
+        public void HasNoNulls_NullableValueCollection_UsesHasValue()
+        {
+            IEnumerable<int?> values = new int?[] { 1, null };
+
+            using var validation = new Validation();
+            validation.HasNoNulls(nameof(values), values);
+            Assert.IsTrue(validation.Failed);
+        }
+
+        [Test]
+        public void AttributeValidation_EmptyValueTypeCollection_Fails()
+        {
+            var gameObject = new GameObject(nameof(EmptyValueCollectionHost));
+            try
+            {
+                var host = gameObject.AddComponent<EmptyValueCollectionHost>();
+                using var validation = new Validation(host);
+
+                SerializedFieldsValidator.ValidateAttributes(host, validation);
+                Assert.IsTrue(validation.Failed);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
             }
         }
 

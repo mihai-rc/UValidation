@@ -1,6 +1,6 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using UnityEngine;
@@ -162,39 +162,64 @@ namespace UValidation
         }
 
         /// <summary>
-        /// Checks if the specified condition is true for the given reference.
-        /// If the condition is not met, the validation fails.
+        /// Checks whether a condition is true.
         /// </summary>
-        /// <typeparam name="T"> The type that owns the object being validated. </typeparam>
-        /// <param name="variable"> The name of the variable being validated. </param>
-        /// <param name="ownerRef" > The owner of the variable being validated. </param>
-        /// <param name="assertFn"> The function that defines the validation condition. </param>
+        /// <param name="variable"> The name of the value being validated. </param>
+        /// <param name="condition"> The condition that must be true. </param>
         /// <param name="file"> The path to the file in which the validation is performed. </param>
         /// <param name="function"> The name of the function that performs the validation. </param>
         /// <param name="line"> The line at which the validation was performed. </param>
         /// <returns> The validation instance for continued fluent chaining. </returns>
-        public Validation IsTrue<T>(
+        public Validation IsTrue(
             string variable,
-            T ownerRef,
-            Func<T, bool> assertFn,
+            bool condition,
             [CallerFilePath] string file = "",
             [CallerMemberName] string function = "",
             [CallerLineNumber] int line = 0)
         {
             ThrowIfDisposed();
 
-            if (assertFn == null)
+            if (!condition)
+            {
+                Fail(k_ConditionFailed, variable, file, function, line);
+            }
+
+            return this;
+        }
+
+        /// <summary>
+        /// Checks whether a predicate is true for a value.
+        /// </summary>
+        /// <typeparam name="T"> The type of the value being validated. </typeparam>
+        /// <param name="variable"> The name of the value being validated. </param>
+        /// <param name="value"> The value supplied to the predicate. </param>
+        /// <param name="predicate"> The function that defines the validation condition. </param>
+        /// <param name="file"> The path to the file in which the validation is performed. </param>
+        /// <param name="function"> The name of the function that performs the validation. </param>
+        /// <param name="line"> The line at which the validation was performed. </param>
+        /// <returns> The validation instance for continued fluent chaining. </returns>
+        public Validation IsTrue<T>(
+            string variable,
+            T value,
+            Func<T, bool> predicate,
+            [CallerFilePath] string file = "",
+            [CallerMemberName] string function = "",
+            [CallerLineNumber] int line = 0)
+        {
+            ThrowIfDisposed();
+
+            if (predicate == null)
             {
                 Fail(k_PredicateNull, variable, file, function, line);
                 return this;
             }
 
-            bool validationPassed = false;
+            bool validationPassed;
             string exception = null;
 
             try
             {
-                validationPassed = assertFn.Invoke(ownerRef);
+                validationPassed = predicate.Invoke(value);
             }
             catch (Exception e)
             {
@@ -211,29 +236,26 @@ namespace UValidation
         }
 
         /// <summary>
-        /// Checks if the specified reference is not null.
+        /// Checks whether a reference is not null.
         /// </summary>
-        /// <param name="variable"> The name of the variable being validated. </param>
-        /// <param name="variableRef"> The reference being validated. </param>
+        /// <typeparam name="T"> The reference type being validated. </typeparam>
+        /// <param name="variable"> The name of the reference being validated. </param>
+        /// <param name="value"> The reference being validated. </param>
         /// <param name="file"> The path to the file in which the validation is performed. </param>
         /// <param name="function"> The name of the function that performs the validation. </param>
         /// <param name="line"> The line at which the validation was performed. </param>
         /// <returns> The validation instance for continued fluent chaining. </returns>
-        public Validation IsNotNull(
+        public Validation IsNotNull<T>(
             string variable,
-            object variableRef,
+            T value,
             [CallerFilePath] string file = "",
             [CallerMemberName] string function = "",
             [CallerLineNumber] int line = 0)
+            where T : class
         {
             ThrowIfDisposed();
 
-            if (variableRef is UnityEngine.Object unityObject)
-            {
-                return IsNotNull(variable, unityObject, file, function, line);
-            }
-
-            if (variableRef != null)
+            if (!IsNullReference(value))
             {
                 return this;
             }
@@ -243,24 +265,26 @@ namespace UValidation
         }
 
         /// <summary>
-        /// Checks if the specified reference is not null.
+        /// Checks whether a nullable value has a value.
         /// </summary>
-        /// <param name="variable"> The name of the variable being validated. </param>
-        /// <param name="variableRef"> The reference being validated. </param>
+        /// <typeparam name="T"> The value type being validated. </typeparam>
+        /// <param name="variable"> The name of the value being validated. </param>
+        /// <param name="value"> The nullable value being validated. </param>
         /// <param name="file"> The path to the file in which the validation is performed. </param>
         /// <param name="function"> The name of the function that performs the validation. </param>
         /// <param name="line"> The line at which the validation was performed. </param>
         /// <returns> The validation instance for continued fluent chaining. </returns>
-        public Validation IsNotNull(
+        public Validation IsNotNull<T>(
             string variable,
-            UnityEngine.Object variableRef,
+            Nullable<T> value,
             [CallerFilePath] string file = "",
             [CallerMemberName] string function = "",
             [CallerLineNumber] int line = 0)
+            where T : struct
         {
             ThrowIfDisposed();
 
-            if (variableRef != null)
+            if (value.HasValue)
             {
                 return this;
             }
@@ -270,51 +294,24 @@ namespace UValidation
         }
 
         /// <summary>
-        /// Checks if the specified reference is not null.
+        /// Checks whether a string is not null or empty.
         /// </summary>
-        /// <param name="variable"> The name of the variable being validated. </param>
-        /// <param name="variableRef"> The reference being validated. </param>
-        /// <param name="file"> The path to the file in which the validation is performed. </param>
-        /// <param name="function"> The name of the function that performs the validation. </param>
-        /// <param name="line"> The line at which the validation was performed. </param>
-        /// <returns> The validation instance for continued fluent chaining. </returns>
-        public Validation IsNotNull(
-            string variable,
-            IEnumerable<object> variableRef,
-            [CallerFilePath] string file = "",
-            [CallerMemberName] string function = "",
-            [CallerLineNumber] int line = 0)
-        {
-            ThrowIfDisposed();
-
-            if (variableRef != null)
-            {
-                return this;
-            }
-
-            Fail(k_NullReference, variable, file, function, line);
-            return this;
-        }
-
-        /// <summary>
-        /// Checks if the specified string is not null or empty.
-        /// </summary>
-        /// <param name="variable"> The name of the variable being validated. </param>
-        /// <param name="variableRef"> The reference being validated. </param>
+        /// <param name="variable"> The name of the string being validated. </param>
+        /// <param name="value"> The string being validated. </param>
         /// <param name="file"> The path to the file in which the validation is performed. </param>
         /// <param name="function"> The name of the function that performs the validation. </param>
         /// <param name="line"> The line at which the validation was performed. </param>
         /// <returns> The validation instance for continued fluent chaining. </returns>
         public Validation IsNotEmpty(
             string variable,
-            string variableRef,
+            string value,
             [CallerFilePath] string file = "",
             [CallerMemberName] string function = "",
             [CallerLineNumber] int line = 0)
         {
             ThrowIfDisposed();
 
-            if (!string.IsNullOrEmpty(variableRef))
+            if (!string.IsNullOrEmpty(value))
             {
                 return this;
             }
@@ -324,24 +321,25 @@ namespace UValidation
         }
 
         /// <summary>
-        /// Checks if the specified collection is not empty.
+        /// Checks whether a collection is not null or empty.
         /// </summary>
-        /// <param name="variable"> The name of the variable being validated. </param>
-        /// <param name="variableRef"> The reference being validated. </param>
+        /// <typeparam name="T"> The collection element type. </typeparam>
+        /// <param name="variable"> The name of the collection being validated. </param>
+        /// <param name="values"> The collection being validated. </param>
         /// <param name="file"> The path to the file in which the validation is performed. </param>
         /// <param name="function"> The name of the function that performs the validation. </param>
         /// <param name="line"> The line at which the validation was performed. </param>
         /// <returns> The validation instance for continued fluent chaining. </returns>
-        public Validation IsNotEmpty(
+        public Validation IsNotEmpty<T>(
             string variable,
-            IEnumerable<object> variableRef,
+            IEnumerable<T> values,
             [CallerFilePath] string file = "",
             [CallerMemberName] string function = "",
             [CallerLineNumber] int line = 0)
         {
             ThrowIfDisposed();
 
-            if (variableRef != null && variableRef.Any())
+            if (values != null && HasAny(values))
             {
                 return this;
             }
@@ -351,25 +349,63 @@ namespace UValidation
         }
 
         /// <summary>
-        /// Checks if the specified collection contains no null items.
+        /// Checks whether a reflected collection is not null or empty.
         /// </summary>
-        /// <param name="variable"> The name of the variable being validated. </param>
-        /// <param name="variableRef"> The reference being validated. </param>
+        /// <param name="variable"> The name of the collection being validated. </param>
+        /// <param name="values"> The reflected collection being validated. </param>
+        /// <param name="file"> The path to the source field declaration. </param>
+        /// <param name="function"> The name of the function that performs the validation. </param>
+        /// <param name="line"> The line of the source field declaration. </param>
+        /// <returns> The validation instance for continued fluent chaining. </returns>
+        internal Validation IsNotEmpty(
+            string variable,
+            IEnumerable values,
+            string file,
+            string function,
+            int line)
+        {
+            ThrowIfDisposed();
+
+            if (values != null && HasAny(values))
+            {
+                return this;
+            }
+
+            Fail(k_EmptyCollection, variable, file, function, line);
+            return this;
+        }
+
+        /// <summary>
+        /// Checks whether a reference collection contains no null items.
+        /// </summary>
+        /// <typeparam name="T"> The collection element type. </typeparam>
+        /// <param name="variable"> The name of the collection being validated. </param>
+        /// <param name="values"> The collection being validated. </param>
         /// <param name="file"> The path to the file in which the validation is performed. </param>
         /// <param name="function"> The name of the function that performs the validation. </param>
         /// <param name="line"> The line at which the validation was performed. </param>
         /// <returns> The validation instance for continued fluent chaining. </returns>
-        public Validation HasNoNulls(
+        public Validation HasNoNulls<T>(
             string variable,
-            IEnumerable<object> variableRef,
+            IEnumerable<T> values,
             [CallerFilePath] string file = "",
             [CallerMemberName] string function = "",
             [CallerLineNumber] int line = 0)
+            where T : class
         {
             ThrowIfDisposed();
 
-            if (variableRef != null && variableRef.All(o => o != null))
+            if (values != null)
             {
+                foreach (var value in values)
+                {
+                    if (IsNullReference(value))
+                    {
+                        Fail(k_CollectionWithNullItems, variable, file, function, line);
+                        return this;
+                    }
+                }
+
                 return this;
             }
 
@@ -378,26 +414,36 @@ namespace UValidation
         }
 
         /// <summary>
-        /// Checks if the specified collection contains no null items, honoring Unity's
-        /// fake-null semantics for destroyed <see cref="UnityEngine.Object"/> elements.
+        /// Checks whether a nullable value collection contains no null items.
         /// </summary>
-        /// <param name="variable"> The name of the variable being validated. </param>
-        /// <param name="variableRef"> The reference being validated. </param>
+        /// <typeparam name="T"> The collection element value type. </typeparam>
+        /// <param name="variable"> The name of the collection being validated. </param>
+        /// <param name="values"> The collection being validated. </param>
         /// <param name="file"> The path to the file in which the validation is performed. </param>
         /// <param name="function"> The name of the function that performs the validation. </param>
         /// <param name="line"> The line at which the validation was performed. </param>
         /// <returns> The validation instance for continued fluent chaining. </returns>
-        public Validation HasNoNulls(
+        public Validation HasNoNulls<T>(
             string variable,
-            IEnumerable<UnityEngine.Object> variableRef,
+            IEnumerable<Nullable<T>> values,
             [CallerFilePath] string file = "",
             [CallerMemberName] string function = "",
             [CallerLineNumber] int line = 0)
+            where T : struct
         {
             ThrowIfDisposed();
 
-            if (variableRef != null && variableRef.All(o => o != null))
+            if (values != null)
             {
+                foreach (var value in values)
+                {
+                    if (!value.HasValue)
+                    {
+                        Fail(k_CollectionWithNullItems, variable, file, function, line);
+                        return this;
+                    }
+                }
+
                 return this;
             }
 
@@ -406,30 +452,119 @@ namespace UValidation
         }
 
         /// <summary>
-        /// Checks if the specified string collection contains no null or empty items.
+        /// Checks whether a reflected collection contains no null items.
         /// </summary>
-        /// <param name="variable"> The name of the variable being validated. </param>
-        /// <param name="variableRef"> The reference being validated. </param>
+        /// <param name="variable"> The name of the collection being validated. </param>
+        /// <param name="values"> The reflected collection being validated. </param>
+        /// <param name="file"> The path to the source field declaration. </param>
+        /// <param name="function"> The name of the function that performs the validation. </param>
+        /// <param name="line"> The line of the source field declaration. </param>
+        /// <returns> The validation instance for continued fluent chaining. </returns>
+        internal Validation HasNoNulls(
+            string variable,
+            IEnumerable values,
+            string file,
+            string function,
+            int line)
+        {
+            ThrowIfDisposed();
+
+            if (values != null)
+            {
+                foreach (var value in values)
+                {
+                    if (IsNullReference(value))
+                    {
+                        Fail(k_CollectionWithNullItems, variable, file, function, line);
+                        return this;
+                    }
+                }
+
+                return this;
+            }
+
+            Fail(k_CollectionWithNullItems, variable, file, function, line);
+            return this;
+        }
+
+        /// <summary>
+        /// Checks whether a string collection contains no null or empty items.
+        /// </summary>
+        /// <param name="variable"> The name of the collection being validated. </param>
+        /// <param name="values"> The collection being validated. </param>
         /// <param name="file"> The path to the file in which the validation is performed. </param>
         /// <param name="function"> The name of the function that performs the validation. </param>
         /// <param name="line"> The line at which the validation was performed. </param>
         /// <returns> The validation instance for continued fluent chaining. </returns>
         public Validation HasNoEmpties(
             string variable,
-            IEnumerable<string> variableRef,
+            IEnumerable<string> values,
             [CallerFilePath] string file = "",
             [CallerMemberName] string function = "",
             [CallerLineNumber] int line = 0)
         {
             ThrowIfDisposed();
 
-            if (variableRef != null && variableRef.All(s => !string.IsNullOrEmpty(s)))
+            if (values != null)
             {
+                foreach (var value in values)
+                {
+                    if (string.IsNullOrEmpty(value))
+                    {
+                        Fail(k_CollectionWithEmptyStrings, variable, file, function, line);
+                        return this;
+                    }
+                }
+
                 return this;
             }
 
             Fail(k_CollectionWithEmptyStrings, variable, file, function, line);
             return this;
+        }
+
+        private static bool HasAny<T>(IEnumerable<T> values)
+        {
+            if (values is ICollection<T> collection)
+            {
+                return collection.Count > 0;
+            }
+
+            if (values is IReadOnlyCollection<T> readOnlyCollection)
+            {
+                return readOnlyCollection.Count > 0;
+            }
+
+            using var enumerator = values.GetEnumerator();
+            return enumerator.MoveNext();
+        }
+
+        private static bool HasAny(IEnumerable values)
+        {
+            if (values is ICollection collection)
+            {
+                return collection.Count > 0;
+            }
+
+            var enumerator = values.GetEnumerator();
+            try
+            {
+                return enumerator.MoveNext();
+            }
+            finally
+            {
+                (enumerator as IDisposable)?.Dispose();
+            }
+        }
+
+        private static bool IsNullReference(object value)
+        {
+            if (value == null)
+            {
+                return true;
+            }
+
+            return value is UnityEngine.Object unityObject && unityObject == null;
         }
 
         private void Fail(string reason, string variable, string file, string function, int line, string exception = null)

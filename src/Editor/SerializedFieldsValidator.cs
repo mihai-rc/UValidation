@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using UnityEngine;
@@ -251,25 +250,24 @@ namespace UValidation.Editor
                 }
                 else if (typeof(IEnumerable).IsAssignableFrom(fieldType))
                 {
-                    var enumerable = (IEnumerable)value;
-                    validation.IsNotEmpty(fieldName, enumerable?.Cast<object>(), attr.FilePath, null, attr.LineNumber);
+                    validation.IsNotEmpty(
+                        fieldName,
+                        (IEnumerable)value,
+                        attr.FilePath,
+                        null,
+                        attr.LineNumber);
                 }
             }
 
             if (data.HasNoNulls != null && typeof(IEnumerable).IsAssignableFrom(fieldType))
             {
                 var attr = data.HasNoNulls;
-                var enumerable = (IEnumerable)value;
-                var elementType = GetEnumerableElementType(fieldType);
-
-                if (elementType != null && typeof(UnityEngine.Object).IsAssignableFrom(elementType))
-                {
-                    validation.HasNoNulls(fieldName, enumerable?.Cast<UnityEngine.Object>(), attr.FilePath, null, attr.LineNumber);
-                }
-                else
-                {
-                    validation.HasNoNulls(fieldName, enumerable?.Cast<object>(), attr.FilePath, null, attr.LineNumber);
-                }
+                validation.HasNoNulls(
+                    fieldName,
+                    (IEnumerable)value,
+                    attr.FilePath,
+                    null,
+                    attr.LineNumber);
             }
 
             if (data.HasNoEmpties != null && typeof(IEnumerable<string>).IsAssignableFrom(fieldType))
@@ -277,24 +275,6 @@ namespace UValidation.Editor
                 var attr = data.HasNoEmpties;
                 validation.HasNoEmpties(fieldName, (IEnumerable<string>)value, attr.FilePath, null, attr.LineNumber);
             }
-        }
-
-        private static Type GetEnumerableElementType(Type collectionType)
-        {
-            if (collectionType.IsArray)
-            {
-                return collectionType.GetElementType();
-            }
-
-            foreach (var iface in collectionType.GetInterfaces())
-            {
-                if (iface.IsGenericType && iface.GetGenericTypeDefinition() == typeof(IEnumerable<>))
-                {
-                    return iface.GetGenericArguments()[0];
-                }
-            }
-
-            return null;
         }
 
         private static string GetCleanName(string fieldName)

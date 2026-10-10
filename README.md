@@ -27,3 +27,31 @@ as a failed diagnostic with that object's path and original stack trace.
 skipped. Add collection constraints separately when they are part of the field's contract.
 Unsupported placements, including primitives, Unity object references, and collections of those
 types, produce an Inspector warning.
+
+## Runtime fluent validation
+
+Create a validation scope, chain the rules that describe the runtime contract, and report any
+accumulated failures before disposal:
+
+```csharp
+using var validation = new Validation(this);
+
+validation
+    .IsNotNull(nameof(m_Target), m_Target)
+    .IsNotEmpty(nameof(m_Name), m_Name)
+    .IsNotEmpty(nameof(m_ItemIds), m_ItemIds)
+    .HasNoNulls(nameof(m_Views), m_Views)
+    .HasNoEmpties(nameof(m_Tags), m_Tags)
+    .IsTrue(nameof(m_MinDamage), m_MinDamage <= m_MaxDamage);
+
+validation.Report();
+```
+
+Collection rules are generic, so value-type collections do not require boxing adapters. Null
+checks recognize destroyed Unity objects even when they are exposed as `object`, and nullable
+value types have dedicated overloads. Use the predicate form of `IsTrue` when evaluation itself
+may throw and should be recorded as a validation failure:
+
+```csharp
+validation.IsTrue(nameof(m_Config), m_Config, config => config.CalculateValue() > 0);
+```
