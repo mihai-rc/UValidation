@@ -23,6 +23,7 @@ namespace UValidation
         private const string k_EmptyCollection = "[Validation] Collection is empty!";
         private const string k_CollectionWithNullItems = "[Validation] Collection contains null items!";
         private const string k_CollectionWithEmptyStrings = "[Validation] Collection contains null or empty string items!";
+        private const string k_CustomValidationException = "[Validation] Custom validation threw an exception!";
 
         private const string k_ContextTag = " - Context: {0}";
         private const string k_VariableTag = " - Variable: {0}";
@@ -135,6 +136,29 @@ namespace UValidation
             var previousPath = m_VariablePath;
             m_VariablePath = QualifyVariable(variablePath);
             return new VariablePathScope(this, previousPath);
+        }
+
+        /// <summary>
+        /// Records an exception thrown by a custom validator as a validation failure.
+        /// </summary>
+        /// <param name="variable"> The object path whose custom validation failed. </param>
+        /// <param name="exception"> The exception thrown by the custom validator. </param>
+        internal void RecordCustomValidationException(string variable, Exception exception)
+        {
+            ThrowIfDisposed();
+
+            if (exception == null)
+            {
+                throw new ArgumentNullException(nameof(exception));
+            }
+
+            Fail(
+                k_CustomValidationException,
+                variable,
+                null,
+                nameof(IValidatable.Validate),
+                0,
+                exception.ToString());
         }
 
         /// <summary>
@@ -421,14 +445,21 @@ namespace UValidation
             }
 
             m_ErrorBuilder.AppendLine(string.Format(k_VariableTag, QualifyVariable(variable)));
-            m_ErrorBuilder.AppendLine(string.Format(k_FileTag, file));
 
-            if (function != null)
+            if (!string.IsNullOrEmpty(file))
+            {
+                m_ErrorBuilder.AppendLine(string.Format(k_FileTag, file));
+            }
+
+            if (!string.IsNullOrEmpty(function))
             {
                 m_ErrorBuilder.AppendLine(string.Format(k_FunctionTag, function));
             }
 
-            m_ErrorBuilder.AppendLine(string.Format(k_LineTag, line));
+            if (line > 0)
+            {
+                m_ErrorBuilder.AppendLine(string.Format(k_LineTag, line));
+            }
 
             if (!string.IsNullOrEmpty(exception))
             {

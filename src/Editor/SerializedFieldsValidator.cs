@@ -77,7 +77,7 @@ namespace UValidation.Editor
 
             if (target is IValidatable validatable)
             {
-                validatable.Validate(validation);
+                RunCustomValidation(validatable, null, validation);
             }
         }
 
@@ -128,13 +128,32 @@ namespace UValidation.Editor
 
                 if (nestedObj is IValidatable validatable)
                 {
-                    using var pathScope = validation.PushVariablePath(parentFieldName);
-                    validatable.Validate(validation);
+                    RunCustomValidation(validatable, parentFieldName, validation);
                 }
             }
             finally
             {
                 traversalPath.Remove(nestedObj);
+            }
+        }
+
+        private static void RunCustomValidation(
+            IValidatable validatable,
+            string objectPath,
+            Validation validation)
+        {
+            using var pathScope = validation.PushVariablePath(objectPath);
+
+            try
+            {
+                validatable.Validate(validation);
+            }
+            catch (Exception exception)
+            {
+                var failurePath = string.IsNullOrEmpty(objectPath)
+                    ? validatable.GetType().Name
+                    : null;
+                validation.RecordCustomValidationException(failurePath, exception);
             }
         }
 

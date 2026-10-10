@@ -20,6 +20,8 @@ public sealed class ItemData
 
 Every annotated field inside each object is validated recursively. Collection failures include the
 element index, such as `m_Items[2].m_Name`. Custom `IValidatable` failures receive the same prefix.
+If an `IValidatable` implementation throws while invoked by UValidation, the exception is captured
+as a failed diagnostic with that object's path and original stack trace.
 
 `[IsValid]` only controls traversal. A null or empty collection passes, and null elements are
 skipped. Add collection constraints separately when they are part of the field's contract.

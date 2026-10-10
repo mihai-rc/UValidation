@@ -11,6 +11,9 @@ namespace UValidation.Tests
 {
     public class IsValidCollectionTests
     {
+        private const string k_CollectionValidatorExceptionMessage =
+            "Collection element validator failed intentionally.";
+
         [Serializable]
         private sealed class ItemData
         {
@@ -36,6 +39,28 @@ namespace UValidation.Tests
             public void Validate(Validation validation)
             {
                 validation.IsTrue(nameof(m_Value), this, data => data.m_Value > 0);
+            }
+        }
+
+        [Serializable]
+        private sealed class ThrowingItemData : IValidatable
+        {
+            [SerializeField, NotEmpty] private string m_Name;
+            [SerializeField] private bool m_Throws;
+
+            public ThrowingItemData(string name, bool throws)
+            {
+                m_Name = name;
+                m_Throws = throws;
+            }
+
+            /// <inheritdoc />
+            public void Validate(Validation validation)
+            {
+                if (m_Throws)
+                {
+                    throw new InvalidOperationException(k_CollectionValidatorExceptionMessage);
+                }
             }
         }
 
@@ -70,6 +95,16 @@ namespace UValidation.Tests
             [SerializeField, IsValid] private List<RuleData> m_Items;
 
             public void SetItems(List<RuleData> items)
+            {
+                m_Items = items;
+            }
+        }
+
+        private sealed class ThrowingItemListHost : MonoBehaviour
+        {
+            [SerializeField, IsValid] private List<ThrowingItemData> m_Items;
+
+            public void SetItems(List<ThrowingItemData> items)
             {
                 m_Items = items;
             }
@@ -205,6 +240,38 @@ namespace UValidation.Tests
                 using var validation = Validate(host);
                 Assert.IsTrue(validation.Failed);
                 ExpectFailure(validation, @"m_Items\[1\]\.m_Value");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [Test]
+        public void IsValid_CustomRuleException_ContinuesWithLaterElements()
+        {
+            var gameObject = new GameObject(nameof(ThrowingItemListHost));
+            try
+            {
+                var host = gameObject.AddComponent<ThrowingItemListHost>();
+                host.SetItems(new List<ThrowingItemData>
+                {
+                    new("Valid", true),
+                    new(string.Empty, false)
+                });
+
+                using var validation = Validate(host);
+                Assert.IsTrue(validation.Failed);
+                LogAssert.Expect(
+                    LogType.Error,
+                    new Regex(
+                        @"(?s) - Variable: m_Items\[0\]\r?\n.*" +
+                        Regex.Escape(k_CollectionValidatorExceptionMessage)));
+                LogAssert.Expect(
+                    LogType.Error,
+                    new Regex(@" - Variable: m_Items\[1\]\.m_Name\r?\n"));
+                validation.Report();
+                LogAssert.NoUnexpectedReceived();
             }
             finally
             {

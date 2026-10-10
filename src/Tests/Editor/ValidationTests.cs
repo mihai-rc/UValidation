@@ -11,6 +11,33 @@ namespace UValidation.Tests
 {
     public class ValidationTests
     {
+        private const string k_RootValidatorExceptionMessage = "Root validator failed intentionally.";
+        private const string k_NestedValidatorExceptionMessage = "Nested validator failed intentionally.";
+
+        private sealed class ThrowingValidationHost : MonoBehaviour, IValidatable
+        {
+            /// <inheritdoc />
+            public void Validate(Validation validation)
+            {
+                throw new InvalidOperationException(k_RootValidatorExceptionMessage);
+            }
+        }
+
+        [Serializable]
+        private sealed class ThrowingNestedData : IValidatable
+        {
+            /// <inheritdoc />
+            public void Validate(Validation validation)
+            {
+                throw new InvalidOperationException(k_NestedValidatorExceptionMessage);
+            }
+        }
+
+        private sealed class ThrowingNestedHost : MonoBehaviour
+        {
+            [SerializeField, IsValid] private ThrowingNestedData m_Data = new();
+        }
+
         [Test]
         public void IsTrue_NullPredicate_RecordsFailure()
         {
@@ -105,6 +132,56 @@ namespace UValidation.Tests
 
             Assert.IsTrue(ValidationHelper.IsSceneValidAtPath(unsavedScenePath, false),
                 "A scene must be allowed through validation before its asset exists on the first save.");
+        }
+
+        [Test]
+        public void IValidatable_RootException_IsCapturedAsFailure()
+        {
+            var gameObject = new GameObject(nameof(ThrowingValidationHost));
+            try
+            {
+                var host = gameObject.AddComponent<ThrowingValidationHost>();
+                using var validation = new Validation(host);
+
+                Assert.DoesNotThrow(() => SerializedFieldsValidator.ValidateAttributes(host, validation));
+                Assert.IsTrue(validation.Failed);
+                LogAssert.Expect(
+                    LogType.Error,
+                    new Regex(
+                        @"(?s) - Variable: ThrowingValidationHost\r?\n.*" +
+                        Regex.Escape(k_RootValidatorExceptionMessage)));
+                validation.Report();
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [Test]
+        public void IValidatable_NestedException_IsCapturedWithObjectPath()
+        {
+            var gameObject = new GameObject(nameof(ThrowingNestedHost));
+            try
+            {
+                var host = gameObject.AddComponent<ThrowingNestedHost>();
+                using var validation = new Validation(host);
+
+                Assert.DoesNotThrow(() => SerializedFieldsValidator.ValidateAttributes(host, validation));
+                Assert.IsTrue(validation.Failed);
+                LogAssert.Expect(
+                    LogType.Error,
+                    new Regex(
+                        @"(?s) - Variable: m_Data\r?\n.*" +
+                        Regex.Escape(k_NestedValidatorExceptionMessage)));
+                validation.Report();
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
         }
 
         private class CycleNode
