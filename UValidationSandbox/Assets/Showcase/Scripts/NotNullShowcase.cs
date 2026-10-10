@@ -15,7 +15,7 @@ namespace UValidation.Showcase
         [SerializeField, NotNull] private Transform m_MissingTransform;
 
         [Header("Misuse - Inspector warning")]
-        [Tooltip("Runtime validation sees a non-null boxed string, but the drawer supports Unity object references only.")]
+        [Tooltip("NotNull attributes support Unity object references only. Use fluent validation for runtime strings.")]
         [SerializeField, NotNull] private string m_StringMisuse = "Not null at runtime";
 
         [Tooltip("Value types can never be null and are not a meaningful NotNull target.")]

@@ -87,5 +87,6 @@ validation preference after saving the intentionally invalid examples.
 - Collection validation failures include their index, for example `m_Items[1].m_Name`.
 - Unsupported placements produce Inspector warnings when a property drawer can inspect them.
   Some unsupported placements are runtime no-ops; they are included to make that behavior visible.
-- `NotNull` runtime validation accepts any boxed reference/value, while its Inspector drawer is
-  intentionally limited to `UnityEngine.Object` references. The misuse examples expose that distinction.
+- Attribute validation is limited to field types Unity represents in the Inspector: `NotNull` accepts
+  `UnityEngine.Object` references, while `HasNoNulls` accepts arrays and lists of those references.
+  The equivalent fluent rules remain available for broader runtime values and collections.

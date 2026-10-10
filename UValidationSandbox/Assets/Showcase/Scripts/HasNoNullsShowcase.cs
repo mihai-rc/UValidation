@@ -17,7 +17,7 @@ namespace UValidation.Showcase
         [SerializeField, HasNoNulls] private GameObject[] m_EmptyCollection = { };
 
         [Header("Misuse - Inspector warnings")]
-        [Tooltip("Runtime validation supports IEnumerable<object>, but the drawer supports Unity object collections only.")]
+        [Tooltip("HasNoNulls attributes support Unity object collections only. Use fluent validation for other collections.")]
         [SerializeField, HasNoNulls] private List<string> m_StringCollectionMisuse = new() { "Configured", null };
 
         [Tooltip("A scalar is not enumerable, so runtime attribute validation ignores this field.")]

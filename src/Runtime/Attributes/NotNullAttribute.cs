@@ -5,8 +5,7 @@ using UnityEngine;
 namespace UValidation
 {
     /// <summary>
-    /// Specifies that the field must not be null.
-    /// Can be applied to reference-type fields.
+    /// Specifies that a serialized Unity object reference must be assigned.
     /// </summary>
     [AttributeUsage(AttributeTargets.Field)]
     public class NotNullAttribute : PropertyAttribute

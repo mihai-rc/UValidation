@@ -235,13 +235,13 @@ namespace UValidation.Editor
         {
             var fieldType = data.Field.FieldType;
 
-            if (data.NotNull != null)
+            if (data.NotNull != null && ValidationAttributeTargetUtility.SupportsNotNull(fieldType))
             {
                 var attr = data.NotNull;
                 validation.IsNotNull(fieldName, value, attr.FilePath, null, attr.LineNumber);
             }
 
-            if (data.NotEmpty != null)
+            if (data.NotEmpty != null && ValidationAttributeTargetUtility.SupportsNotEmpty(fieldType))
             {
                 var attr = data.NotEmpty;
                 if (fieldType == typeof(string))
@@ -259,7 +259,7 @@ namespace UValidation.Editor
                 }
             }
 
-            if (data.HasNoNulls != null && typeof(IEnumerable).IsAssignableFrom(fieldType))
+            if (data.HasNoNulls != null && ValidationAttributeTargetUtility.SupportsHasNoNulls(fieldType))
             {
                 var attr = data.HasNoNulls;
                 validation.HasNoNulls(
@@ -270,7 +270,7 @@ namespace UValidation.Editor
                     attr.LineNumber);
             }
 
-            if (data.HasNoEmpties != null && typeof(IEnumerable<string>).IsAssignableFrom(fieldType))
+            if (data.HasNoEmpties != null && ValidationAttributeTargetUtility.SupportsHasNoEmpties(fieldType))
             {
                 var attr = data.HasNoEmpties;
                 validation.HasNoEmpties(fieldName, (IEnumerable<string>)value, attr.FilePath, null, attr.LineNumber);

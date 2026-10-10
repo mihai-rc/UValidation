@@ -5,8 +5,7 @@ using UnityEngine;
 namespace UValidation
 {
     /// <summary>
-    /// Specifies that the field must not contain null items.
-    /// Can be applied to fields that are collections.
+    /// Specifies that a serialized array or list of Unity object references must not contain null items.
     /// </summary>
     [AttributeUsage(AttributeTargets.Field)]
     public class HasNoNullsAttribute : PropertyAttribute

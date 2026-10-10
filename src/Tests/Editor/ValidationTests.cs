@@ -43,6 +43,14 @@ namespace UValidation.Tests
             [SerializeField, NotEmpty] private int[] m_Values = Array.Empty<int>();
         }
 
+        private sealed class UnsupportedAttributeTargetsHost : MonoBehaviour
+        {
+            [SerializeField, NotNull] private string m_NullString;
+            [SerializeField, HasNoNulls] private List<string> m_Strings = new() { null };
+            [SerializeField, HasNoEmpties] private GameObject[] m_Objects = { null };
+            [SerializeField, NotEmpty] private int m_Number;
+        }
+
         [Test]
         public void IsTrue_NullPredicate_RecordsFailure()
         {
@@ -191,6 +199,25 @@ namespace UValidation.Tests
 
                 SerializedFieldsValidator.ValidateAttributes(host, validation);
                 Assert.IsTrue(validation.Failed);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [Test]
+        public void AttributeValidation_UnsupportedTargets_AreIgnored()
+        {
+            var gameObject = new GameObject(nameof(UnsupportedAttributeTargetsHost));
+            try
+            {
+                var host = gameObject.AddComponent<UnsupportedAttributeTargetsHost>();
+                using var validation = new Validation(host);
+
+                SerializedFieldsValidator.ValidateAttributes(host, validation);
+
+                Assert.IsTrue(validation.Passed);
             }
             finally
             {

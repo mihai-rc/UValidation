@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -109,16 +108,6 @@ namespace UValidation.Editor
         internal static bool IsCollectionElement(SerializedProperty property)
         {
             return property.propertyPath.Contains(".Array.data[");
-        }
-
-        internal static bool IsCollectionOf(Type fieldType, Type elementBaseType)
-        {
-            var elementType = fieldType.IsArray
-                ? fieldType.GetElementType()
-                : fieldType.IsGenericType && fieldType.GetGenericTypeDefinition() == typeof(List<>)
-                    ? fieldType.GetGenericArguments()[0]
-                    : null;
-            return elementType != null && elementBaseType.IsAssignableFrom(elementType);
         }
 
         internal static bool HasNoNullObjectReferences(SerializedProperty property)

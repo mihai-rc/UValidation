@@ -23,7 +23,7 @@ namespace UValidation.Editor
                 k_AttributeName,
                 k_AllowedTypeDescription,
                 k_ViolationMessage,
-                IsSupportedType,
+                p => IsSupportedType(p) && ValidationAttributeTargetUtility.SupportsNotEmpty(fieldInfo.FieldType),
                 IsNotEmpty);
         }
 
@@ -37,7 +37,7 @@ namespace UValidation.Editor
                 k_AttributeName,
                 k_AllowedTypeDescription,
                 k_ViolationMessage,
-                IsSupportedType,
+                p => IsSupportedType(p) && ValidationAttributeTargetUtility.SupportsNotEmpty(fieldInfo.FieldType),
                 IsNotEmpty);
         }
 
@@ -45,7 +45,9 @@ namespace UValidation.Editor
         public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
         {
             return FieldDrawerHelper.GetPropertyHeight(property, label, k_AttributeName,
-                k_AllowedTypeDescription, k_ViolationMessage, IsSupportedType, IsNotEmpty);
+                k_AllowedTypeDescription, k_ViolationMessage,
+                p => IsSupportedType(p) && ValidationAttributeTargetUtility.SupportsNotEmpty(fieldInfo.FieldType),
+                IsNotEmpty);
         }
 
         private static bool IsSupportedType(SerializedProperty property)

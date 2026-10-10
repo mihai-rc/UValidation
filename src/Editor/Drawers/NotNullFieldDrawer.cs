@@ -27,7 +27,7 @@ namespace UValidation.Editor
                 k_AttributeName,
                 k_AllowedTypeDescription,
                 k_ViolationMessage,
-                p => IsObjectReference(p) && typeof(UnityEngine.Object).IsAssignableFrom(fieldInfo.FieldType),
+                p => IsObjectReference(p) && ValidationAttributeTargetUtility.SupportsNotNull(fieldInfo.FieldType),
                 p => p.objectReferenceValue != null);
         }
 
@@ -41,7 +41,7 @@ namespace UValidation.Editor
                 k_AttributeName,
                 k_AllowedTypeDescription,
                 k_ViolationMessage,
-                p => IsObjectReference(p) && typeof(UnityEngine.Object).IsAssignableFrom(fieldInfo.FieldType),
+                p => IsObjectReference(p) && ValidationAttributeTargetUtility.SupportsNotNull(fieldInfo.FieldType),
                 p => p.objectReferenceValue != null);
         }
 
@@ -50,7 +50,7 @@ namespace UValidation.Editor
         {
             return FieldDrawerHelper.GetPropertyHeight(property, label, k_AttributeName,
                 k_AllowedTypeDescription, k_ViolationMessage,
-                p => IsObjectReference(p) && typeof(UnityEngine.Object).IsAssignableFrom(fieldInfo.FieldType),
+                p => IsObjectReference(p) && ValidationAttributeTargetUtility.SupportsNotNull(fieldInfo.FieldType),
                 p => p.objectReferenceValue != null);
         }
 
