@@ -50,20 +50,17 @@ namespace UValidation.Editor
         }
 
         /// <summary>
-        /// Validates a ScriptableObject at the specified asset path.
+        /// Validates every ScriptableObject stored at the specified asset path.
         /// </summary>
-        /// <param name="assetPath"> The path to the scriptable object asset. </param>
+        /// <param name="assetPath"> The path to the asset file. </param>
         /// <param name="reportError"> Whether errors should be reported. </param>
-        /// <returns> True if the scriptable object is valid; otherwise, false. </returns>
+        /// <returns> True if every ScriptableObject in the asset file is valid; otherwise, false. </returns>
         public static bool IsScriptableObjectValidAtPath(string assetPath, bool reportError)
         {
-            var asset = AssetDatabase.LoadAssetAtPath<ScriptableObject>(assetPath);
-            if (asset == null)
-            {
-                return true;
-            }
-
-            return IsScriptValid(asset, reportError);
+            return AssetDatabase
+                .LoadAllAssetsAtPath(assetPath)
+                .OfType<ScriptableObject>()
+                .All(asset => IsScriptValid(asset, reportError));
         }
 
         /// <summary>

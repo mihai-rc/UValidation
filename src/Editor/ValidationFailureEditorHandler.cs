@@ -43,8 +43,8 @@ namespace UValidation.Editor
                 return;
             }
 
-            var asset = AssetDatabase.LoadAssetAtPath<ScriptableObject>(path);
-            if (asset != null && !ValidationHelper.IsScriptValid(asset, false))
+            var asset = AssetDatabase.LoadMainAssetAtPath(path);
+            if (asset != null && !ValidationHelper.IsScriptableObjectValidAtPath(path, false))
             {
                 selectionRect.x -= 3;
                 selectionRect.y -= 1;
