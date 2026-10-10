@@ -69,6 +69,11 @@ Project windows. Enforcement is configured separately under **Project Settings >
 Fresh projects start with all enforcement policies disabled. When enabled, the settings are stored
 in `ProjectSettings/UValidationSettings.asset`, so a team can commit and share them with the project.
 
+Unity may announce a newly created scene, prefab, or ScriptableObject before the AssetDatabase can
+read it. UValidation allows that initial creation to finish, validates the imported contents
+immediately afterward, and reports and highlights any failure. Once the asset exists, later invalid
+saves are blocked normally.
+
 The old `Framework.EnableValidation` Editor preference is no longer used. Existing installations
 therefore start from the new project policies rather than inheriting a machine-wide setting from an
 unrelated project.

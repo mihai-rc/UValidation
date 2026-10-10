@@ -100,11 +100,14 @@ namespace UValidation.Tests
         }
 
         [Test]
-        public void MissingPrefabPath_IsAllowedForInitialSave()
+        public void MissingPrefabPath_IsInvalidPubliclyAndPendingForSaveEnforcement()
         {
             var missingPath = k_TestFolderPath + "/Missing.prefab";
 
-            Assert.IsTrue(ValidationHelper.IsPrefabValidAtPath(missingPath, false));
+            Assert.IsFalse(ValidationHelper.IsPrefabValidAtPath(missingPath, false));
+            Assert.AreEqual(
+                AssetValidationState.PendingCreation,
+                ValidationHelper.ValidateAssetAtPathForSave(missingPath, false));
         }
 
         private static string CreatePrefab(string name, string value)

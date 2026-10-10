@@ -38,13 +38,15 @@ namespace UValidation.Editor
         private static void OnProjectWindowItemOnGUI(string guid, Rect selectionRect)
         {
             var path = AssetDatabase.GUIDToAssetPath(guid);
-            if (string.IsNullOrEmpty(path) || !path.EndsWith(".asset"))
+            if (string.IsNullOrEmpty(path) ||
+                !path.EndsWith(".asset", System.StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }
 
             var asset = AssetDatabase.LoadMainAssetAtPath(path);
-            if (asset != null && !ValidationHelper.IsScriptableObjectValidAtPath(path, false))
+            var validationState = ValidationHelper.ValidateAssetAtPathForSave(path, false);
+            if (asset != null && validationState == AssetValidationState.Invalid)
             {
                 selectionRect.x -= 3;
                 selectionRect.y -= 1;

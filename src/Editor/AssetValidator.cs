@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEditor;
 
@@ -25,21 +26,30 @@ namespace UValidation.Editor
             var validPaths = new List<string>(paths);
             foreach (var path in paths)
             {
-                var isValid = path switch
+                var validationState = ValidationHelper.ValidateAssetAtPathForSave(path, true);
+                switch (validationState)
                 {
-                    _ when path.EndsWith(".unity") => IsSceneValidAtPath(path),
-                    _ when path.EndsWith(".prefab") => IsPrefabValidAtPath(path),
-                    _ when path.EndsWith(".asset") => IsScriptableObjectValidAtPath(path),
-                    _ => true
-                };
-
-                if (!isValid)
-                {
-                    validPaths.Remove(path);
+                    case AssetValidationState.Valid:
+                        break;
+                    case AssetValidationState.Invalid:
+                        PromptValidationFailed(path);
+                        validPaths.Remove(path);
+                        break;
+                    case AssetValidationState.PendingCreation:
+                        PendingAssetValidation.Queue(path);
+                        break;
                 }
             }
 
             return validPaths.ToArray();
+        }
+
+        private static void OnWillCreateAsset(string assetName)
+        {
+            if (ValidationEnforcement.BlockInvalidSaves)
+            {
+                PendingAssetValidation.Queue(assetName);
+            }
         }
 
         private static bool OnWantsToQuit()
@@ -58,7 +68,8 @@ namespace UValidation.Editor
                 }
 
                 var assetPath = AssetDatabase.GetAssetPath(so);
-                if (string.IsNullOrEmpty(assetPath) || !assetPath.EndsWith(".asset"))
+                if (string.IsNullOrEmpty(assetPath) ||
+                    !assetPath.EndsWith(".asset", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
@@ -72,26 +83,21 @@ namespace UValidation.Editor
             return true;
         }
 
-        private static bool IsSceneValidAtPath(string path)
+        private static void PromptValidationFailed(string path)
         {
-            var isValid = ValidationHelper.IsSceneValidAtPath(path, true);
-            if (!isValid)
+            if (path.EndsWith(".unity", StringComparison.OrdinalIgnoreCase))
             {
                 ValidationFailedDialog.PromptSceneFailed();
+                return;
             }
 
-            return isValid;
-        }
-
-        private static bool IsPrefabValidAtPath(string path)
-        {
-            var isValid = ValidationHelper.IsPrefabValidAtPath(path, true);
-            if (!isValid)
+            if (path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
             {
                 ValidationFailedDialog.PromptPrefabFailed();
+                return;
             }
 
-            return isValid;
+            ValidationFailedDialog.PromptScriptableObjectFailed();
         }
 
         private static bool IsScriptableObjectValidAtPath(string path)

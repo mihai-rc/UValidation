@@ -1,6 +1,9 @@
+using System.Collections;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TestTools;
 using UValidation.Editor;
 
 namespace UValidation.Tests
@@ -51,6 +54,51 @@ namespace UValidation.Tests
             var path = CreateAsset("AllValid", k_ValidValue, k_ValidValue);
 
             Assert.IsTrue(ValidationHelper.IsScriptableObjectValidAtPath(path, false));
+        }
+
+        [Test]
+        public void MissingAsset_IsInvalidPubliclyAndPendingForSaveEnforcement()
+        {
+            var missingPath = k_TestFolderPath + "/Missing.asset";
+
+            Assert.IsFalse(ValidationHelper.IsScriptableObjectValidAtPath(missingPath, false));
+            Assert.AreEqual(
+                AssetValidationState.PendingCreation,
+                ValidationHelper.ValidateAssetAtPathForSave(missingPath, false));
+        }
+
+        [Test]
+        public void NonScriptableObjectAsset_IsNotTreatedAsInvalidBySaveEnforcement()
+        {
+            var path = k_TestFolderPath + "/Animation.asset";
+            AssetDatabase.CreateAsset(new AnimationClip(), path);
+
+            Assert.IsFalse(ValidationHelper.IsScriptableObjectValidAtPath(path, false));
+            Assert.AreEqual(
+                AssetValidationState.Valid,
+                ValidationHelper.ValidateAssetAtPathForSave(path, false));
+        }
+
+        [UnityTest]
+        public IEnumerator NewlyCreatedInvalidAsset_IsReportedAfterInitialImport()
+        {
+            var path = k_TestFolderPath + "/NewInvalid.asset";
+            var asset = ScriptableObject.CreateInstance<ScriptableObjectValidationProbe>();
+            asset.SetValue(string.Empty);
+            UValidationProjectSettings.Instance.BlockInvalidSaves = true;
+
+            LogAssert.Expect(
+                LogType.Error,
+                new Regex(@"(?s)\[Validation\] String is null or empty!.*Variable: m_Value"));
+            LogAssert.Expect(
+                LogType.Error,
+                new Regex("UValidation found invalid data in newly created asset.*NewInvalid\\.asset"));
+
+            AssetDatabase.CreateAsset(asset, path);
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+            yield return null;
+
+            LogAssert.NoUnexpectedReceived();
         }
 
         private static string CreateAsset(string name, string mainValue, string subAssetValue)

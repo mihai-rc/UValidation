@@ -20,6 +20,11 @@ namespace UValidation.Editor
         /// <returns> True if the prefab is valid; otherwise, false. </returns>
         public static bool IsPrefabValidAtPath(string prefabPath, bool reportError)
         {
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) == null)
+            {
+                return false;
+            }
+
             var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
             if (prefabStage != null &&
                 string.Equals(prefabStage.assetPath, prefabPath, StringComparison.Ordinal))
@@ -27,26 +32,34 @@ namespace UValidation.Editor
                 return IsGameObjectValidRecursively(prefabStage.prefabContentsRoot, reportError);
             }
 
-            if (AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) == null)
-            {
-                // Unity can invoke OnWillSaveAssets before a newly-created prefab is resolvable
-                // by path. Allow that initial save so creation does not deadlock.
-                return true;
-            }
-
             GameObject prefabRoot = null;
+            var isValid = false;
             try
             {
                 prefabRoot = PrefabUtility.LoadPrefabContents(prefabPath);
-                return IsGameObjectValidRecursively(prefabRoot, reportError);
+                isValid = IsGameObjectValidRecursively(prefabRoot, reportError);
+            }
+            catch (Exception exception)
+            {
+                ReportUnreadableAsset("prefab", prefabPath, exception, reportError);
             }
             finally
             {
                 if (prefabRoot != null)
                 {
-                    PrefabUtility.UnloadPrefabContents(prefabRoot);
+                    try
+                    {
+                        PrefabUtility.UnloadPrefabContents(prefabRoot);
+                    }
+                    catch (Exception exception)
+                    {
+                        ReportUnreadableAsset("prefab", prefabPath, exception, reportError);
+                        isValid = false;
+                    }
                 }
             }
+
+            return isValid;
         }
 
         /// <summary>
@@ -57,10 +70,18 @@ namespace UValidation.Editor
         /// <returns> True if every ScriptableObject in the asset file is valid; otherwise, false. </returns>
         public static bool IsScriptableObjectValidAtPath(string assetPath, bool reportError)
         {
-            return AssetDatabase
+            if (AssetDatabase.LoadMainAssetAtPath(assetPath) == null)
+            {
+                return false;
+            }
+
+            var scriptableObjects = AssetDatabase
                 .LoadAllAssetsAtPath(assetPath)
                 .OfType<ScriptableObject>()
-                .All(asset => IsScriptValid(asset, reportError));
+                .ToArray();
+
+            return scriptableObjects.Length > 0 &&
+                   scriptableObjects.All(asset => IsScriptValid(asset, reportError));
         }
 
         /// <summary>
@@ -73,13 +94,69 @@ namespace UValidation.Editor
         {
             if (AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath) == null)
             {
-                // A new scene does not exist as an asset when Unity invokes OnWillSaveAssets
-                // for its first save, so it cannot be resolved by path yet.
-                return true;
+                return false;
             }
 
             var scene = SceneManager.GetSceneByPath(scenePath);
-            return IsSceneValid(ref scene, reportError);
+            if (scene.IsValid() && scene.isLoaded)
+            {
+                return IsSceneValid(ref scene, reportError);
+            }
+
+            var previewScene = default(Scene);
+            var isValid = false;
+            try
+            {
+                previewScene = EditorSceneManager.OpenPreviewScene(scenePath);
+                isValid = IsSceneValid(ref previewScene, reportError);
+            }
+            catch (Exception exception)
+            {
+                ReportUnreadableAsset("scene", scenePath, exception, reportError);
+            }
+            finally
+            {
+                if (previewScene.IsValid())
+                {
+                    try
+                    {
+                        EditorSceneManager.ClosePreviewScene(previewScene);
+                    }
+                    catch (Exception exception)
+                    {
+                        ReportUnreadableAsset("scene", scenePath, exception, reportError);
+                        isValid = false;
+                    }
+                }
+            }
+
+            return isValid;
+        }
+
+        /// <summary>
+        /// Determines whether a save candidate is valid or must wait for its initial import.
+        /// </summary>
+        /// <param name="assetPath"> The asset path reported by Unity. </param>
+        /// <param name="reportError"> Whether validation errors should be reported. </param>
+        /// <returns> The validation state used by Editor save enforcement. </returns>
+        internal static AssetValidationState ValidateAssetAtPathForSave(string assetPath, bool reportError)
+        {
+            if (assetPath.EndsWith(".unity", StringComparison.OrdinalIgnoreCase))
+            {
+                return ValidateSceneAtPathForSave(assetPath, reportError);
+            }
+
+            if (assetPath.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
+            {
+                return ValidatePrefabAtPathForSave(assetPath, reportError);
+            }
+
+            if (assetPath.EndsWith(".asset", StringComparison.OrdinalIgnoreCase))
+            {
+                return ValidateScriptableObjectAtPathForSave(assetPath, reportError);
+            }
+
+            return AssetValidationState.Valid;
         }
 
         /// <summary>
@@ -161,6 +238,85 @@ namespace UValidation.Editor
             }
 
             return true;
+        }
+
+        private static AssetValidationState ValidatePrefabAtPathForSave(string prefabPath, bool reportError)
+        {
+            var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
+            if (prefabStage != null &&
+                string.Equals(prefabStage.assetPath, prefabPath, StringComparison.Ordinal))
+            {
+                return ToState(IsGameObjectValidRecursively(prefabStage.prefabContentsRoot, reportError));
+            }
+
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) == null)
+            {
+                return AssetDatabase.AssetPathExists(prefabPath)
+                    ? AssetValidationState.Invalid
+                    : AssetValidationState.PendingCreation;
+            }
+
+            return ToState(IsPrefabValidAtPath(prefabPath, reportError));
+        }
+
+        private static AssetValidationState ValidateSceneAtPathForSave(string scenePath, bool reportError)
+        {
+            var scene = SceneManager.GetSceneByPath(scenePath);
+            if (scene.IsValid() && scene.isLoaded)
+            {
+                return ToState(IsSceneValid(ref scene, reportError));
+            }
+
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath) == null)
+            {
+                return AssetDatabase.AssetPathExists(scenePath)
+                    ? AssetValidationState.Invalid
+                    : AssetValidationState.PendingCreation;
+            }
+
+            return ToState(IsSceneValidAtPath(scenePath, reportError));
+        }
+
+        private static AssetValidationState ValidateScriptableObjectAtPathForSave(
+            string assetPath,
+            bool reportError)
+        {
+            if (AssetDatabase.LoadMainAssetAtPath(assetPath) == null)
+            {
+                return AssetDatabase.AssetPathExists(assetPath)
+                    ? AssetValidationState.Invalid
+                    : AssetValidationState.PendingCreation;
+            }
+
+            var scriptableObjects = AssetDatabase
+                .LoadAllAssetsAtPath(assetPath)
+                .OfType<ScriptableObject>()
+                .ToArray();
+
+            if (scriptableObjects.Length == 0)
+            {
+                return AssetValidationState.Valid;
+            }
+
+            return ToState(scriptableObjects.All(asset => IsScriptValid(asset, reportError)));
+        }
+
+        private static AssetValidationState ToState(bool isValid)
+        {
+            return isValid ? AssetValidationState.Valid : AssetValidationState.Invalid;
+        }
+
+        private static void ReportUnreadableAsset(
+            string assetType,
+            string assetPath,
+            Exception exception,
+            bool reportError)
+        {
+            if (reportError)
+            {
+                Debug.LogError(
+                    $"UValidation could not validate {assetType} '{assetPath}': {exception.Message}");
+            }
         }
     }
 }
