@@ -33,8 +33,8 @@ namespace UValidation.Showcase
         [SerializeField, NotEmpty, HasNoNulls]
         private GameObject[] m_RequiredObjectsWithNull = { null, null };
 
-        [Header("Required and recursively validated object")]
-        [SerializeField, NotNull, IsValid]
+        [Header("Recursively validated object")]
+        [SerializeField, IsValid]
         private RequiredNestedData m_RequiredNested = new();
     }
 }

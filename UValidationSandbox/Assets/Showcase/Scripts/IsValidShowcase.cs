@@ -35,14 +35,14 @@ namespace UValidation.Showcase
         [Tooltip("The nested name is empty and its target is missing.")]
         [SerializeField, IsValid] private NestedData m_InvalidNested = new();
 
-        [Tooltip("IsValid alone permits null; combine it with NotNull when the value is required.")]
+        [Tooltip("Unity initializes inline serialized classes, so their default fields are recursively validated.")]
         [SerializeField, IsValid] private NestedData m_NullNested;
 
         [Header("Nested IValidatable objects")]
         [SerializeField, IsValid] private RuleData m_ValidRule = new();
         [SerializeField, IsValid] private RuleData m_InvalidRule = new();
 
-        [Header("Misuse - silently ignored by recursive validation")]
+        [Header("Misuse - shown as Inspector warnings")]
         [SerializeField, IsValid] private int m_PrimitiveMisuse;
         [SerializeField, IsValid] private GameObject m_UnityObjectMisuse;
     }

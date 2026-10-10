@@ -34,6 +34,7 @@ namespace UValidation
         private readonly UnityEngine.Object m_Context;
         private List<string> m_Reasons;
         private StringBuilder m_ErrorBuilder;
+        private string m_VariablePath;
         private bool m_Failed;
         private bool m_Disposed;
 
@@ -70,6 +71,7 @@ namespace UValidation
             m_Context = context;
             m_Reasons = null;
             m_ErrorBuilder = null;
+            m_VariablePath = null;
             m_Failed = false;
             m_Disposed = false;
         }
@@ -118,6 +120,21 @@ namespace UValidation
             }
 
             m_ErrorBuilder = null;
+            m_VariablePath = null;
+        }
+
+        /// <summary>
+        /// Prefixes failures produced by custom validation with their location in the serialized object graph.
+        /// </summary>
+        /// <param name="variablePath"> The path of the object currently being validated. </param>
+        /// <returns> A scope that restores the previous path when disposed. </returns>
+        internal VariablePathScope PushVariablePath(string variablePath)
+        {
+            ThrowIfDisposed();
+
+            var previousPath = m_VariablePath;
+            m_VariablePath = QualifyVariable(variablePath);
+            return new VariablePathScope(this, previousPath);
         }
 
         /// <summary>
@@ -403,7 +420,7 @@ namespace UValidation
                 m_ErrorBuilder.AppendLine(string.Format(k_ContextTag, m_Context.name));
             }
 
-            m_ErrorBuilder.AppendLine(string.Format(k_VariableTag, variable));
+            m_ErrorBuilder.AppendLine(string.Format(k_VariableTag, QualifyVariable(variable)));
             m_ErrorBuilder.AppendLine(string.Format(k_FileTag, file));
 
             if (function != null)
@@ -422,11 +439,52 @@ namespace UValidation
             m_Failed = true;
         }
 
+        private string QualifyVariable(string variable)
+        {
+            if (string.IsNullOrEmpty(m_VariablePath))
+            {
+                return variable;
+            }
+
+            return string.IsNullOrEmpty(variable)
+                ? m_VariablePath
+                : $"{m_VariablePath}.{variable}";
+        }
+
         private void ThrowIfDisposed()
         {
             if (m_Disposed)
             {
                 throw new ObjectDisposedException(nameof(Validation));
+            }
+        }
+
+        /// <summary>
+        /// Restores a validation variable path after nested custom validation completes.
+        /// </summary>
+        internal readonly struct VariablePathScope : IDisposable
+        {
+            private readonly Validation m_Validation;
+            private readonly string m_PreviousPath;
+
+            /// <summary>
+            /// Initializes a new path-restoration scope.
+            /// </summary>
+            /// <param name="validation"> The validation whose path should be restored. </param>
+            /// <param name="previousPath"> The path to restore. </param>
+            internal VariablePathScope(Validation validation, string previousPath)
+            {
+                m_Validation = validation;
+                m_PreviousPath = previousPath;
+            }
+
+            /// <inheritdoc />
+            public void Dispose()
+            {
+                if (m_Validation != null)
+                {
+                    m_Validation.m_VariablePath = m_PreviousPath;
+                }
             }
         }
     }

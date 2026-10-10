@@ -3,8 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using UnityEngine;
-using UnityEngine.Pool;
 
 namespace UValidation.Editor
 {
@@ -22,6 +22,22 @@ namespace UValidation.Editor
             public HasNoNullsAttribute HasNoNulls;
             public HasNoEmptiesAttribute HasNoEmpties;
             public IsValidAttribute IsValid;
+            public IsValidTargetKind IsValidTarget;
+        }
+
+        private sealed class ReferenceComparer : IEqualityComparer<object>
+        {
+            public static readonly ReferenceComparer Instance = new();
+
+            public new bool Equals(object left, object right)
+            {
+                return ReferenceEquals(left, right);
+            }
+
+            public int GetHashCode(object value)
+            {
+                return RuntimeHelpers.GetHashCode(value);
+            }
         }
 
         private static readonly Dictionary<Type, List<FieldValidationData>> s_Cache = new();
@@ -36,18 +52,14 @@ namespace UValidation.Editor
                 return;
             }
 
-            var visited = HashSetPool<object>.Get();
-            try
-            {
-                ValidateAttributesInternal(target, validation, visited);
-            }
-            finally
-            {
-                HashSetPool<object>.Release(visited);
-            }
+            var traversalPath = new HashSet<object>(ReferenceComparer.Instance);
+            ValidateAttributesInternal(target, validation, traversalPath);
         }
 
-        private static void ValidateAttributesInternal(UnityEngine.Object target, Validation validation, HashSet<object> visited)
+        private static void ValidateAttributesInternal(
+            UnityEngine.Object target,
+            Validation validation,
+            HashSet<object> traversalPath)
         {
             var type = target.GetType();
             var fieldsAttributeData = GetFieldsAttributeData(type);
@@ -59,7 +71,7 @@ namespace UValidation.Editor
 
                 if (data.IsValid != null && value != null)
                 {
-                    ValidateNestedObject(value, data.CleanName, validation, visited);
+                    ValidateNestedValue(data.IsValidTarget, value, data.CleanName, validation, traversalPath);
                 }
             }
 
@@ -75,8 +87,12 @@ namespace UValidation.Editor
         /// <param name="nestedObj">The nested object instance to validate.</param>
         /// <param name="parentFieldName">The field name of the parent (used as prefix in error messages).</param>
         /// <param name="validation">The validation context to accumulate failures into.</param>
-        /// <param name="visited">Reference-equality set of plain C# objects already visited, to prevent cycles.</param>
-        private static void ValidateNestedObject(object nestedObj, string parentFieldName, Validation validation, HashSet<object> visited)
+        /// <param name="traversalPath"> Reference-identity set containing the active recursion path. </param>
+        private static void ValidateNestedObject(
+            object nestedObj,
+            string parentFieldName,
+            Validation validation,
+            HashSet<object> traversalPath)
         {
             if (nestedObj == null)
             {
@@ -84,40 +100,71 @@ namespace UValidation.Editor
             }
 
             var type = nestedObj.GetType();
-
-            // Ignore Unity objects and primitive / well-known value types to avoid infinite loops
-            // and meaningless recursion.
-            if (typeof(UnityEngine.Object).IsAssignableFrom(type) || type.IsPrimitive || type == typeof(string))
+            if (!IsValidTargetUtility.IsSerializableCustomClass(type))
             {
                 return;
             }
 
-            // Reference-identity cycle guard. Only meaningful for reference types — value types boxed
-            // here would always hash-compare equal by value, but we don't recurse into them anyway.
-            if (!type.IsValueType && !visited.Add(nestedObj))
+            if (!traversalPath.Add(nestedObj))
             {
                 return;
             }
 
-            var handlers = GetFieldsAttributeData(type);
-
-            foreach (var data in handlers)
+            try
             {
-                var value = data.Field.GetValue(nestedObj);
+                var handlers = GetFieldsAttributeData(type);
 
-                // Prefix the field name so the error message reads "parentField.childField"
-                var qualifiedName = $"{parentFieldName}.{data.CleanName}";
-                ApplyFieldValidation(data, qualifiedName, value, validation);
-
-                if (data.IsValid != null && value != null)
+                foreach (var data in handlers)
                 {
-                    ValidateNestedObject(value, qualifiedName, validation, visited);
+                    var value = data.Field.GetValue(nestedObj);
+                    var qualifiedName = $"{parentFieldName}.{data.CleanName}";
+                    ApplyFieldValidation(data, qualifiedName, value, validation);
+
+                    if (data.IsValid != null && value != null)
+                    {
+                        ValidateNestedValue(data.IsValidTarget, value, qualifiedName, validation, traversalPath);
+                    }
+                }
+
+                if (nestedObj is IValidatable validatable)
+                {
+                    using var pathScope = validation.PushVariablePath(parentFieldName);
+                    validatable.Validate(validation);
                 }
             }
-
-            if (nestedObj is IValidatable validatable)
+            finally
             {
-                validatable.Validate(validation);
+                traversalPath.Remove(nestedObj);
+            }
+        }
+
+        private static void ValidateNestedValue(
+            IsValidTargetKind targetKind,
+            object value,
+            string fieldName,
+            Validation validation,
+            HashSet<object> traversalPath)
+        {
+            if (targetKind == IsValidTargetKind.Object)
+            {
+                ValidateNestedObject(value, fieldName, validation, traversalPath);
+                return;
+            }
+
+            if (targetKind != IsValidTargetKind.Collection || value is not IEnumerable collection)
+            {
+                return;
+            }
+
+            var index = 0;
+            foreach (var element in collection)
+            {
+                if (element != null)
+                {
+                    ValidateNestedObject(element, $"{fieldName}[{index}]", validation, traversalPath);
+                }
+
+                index++;
             }
         }
 
@@ -153,7 +200,10 @@ namespace UValidation.Editor
                             NotEmpty = notEmpty,
                             HasNoNulls = noNullItems,
                             HasNoEmpties = noEmptyItems,
-                            IsValid = isValid
+                            IsValid = isValid,
+                            IsValidTarget = isValid != null
+                                ? IsValidTargetUtility.Classify(field, out _)
+                                : IsValidTargetKind.Unsupported
                         });
                     }
                 }
