@@ -21,11 +21,6 @@ namespace UValidation.Editor
 
         private static void OnHierarchyWindowItemOnGUI(int instanceId, Rect selectionRect)
         {
-            if (!EditorValidationToggle.IsValidationEnabled)
-            {
-                return;
-            }
-
             var gameObject = EditorUtility.EntityIdToObject((EntityId)instanceId) as GameObject;
             if (gameObject == null)
             {
@@ -42,11 +37,6 @@ namespace UValidation.Editor
 
         private static void OnProjectWindowItemOnGUI(string guid, Rect selectionRect)
         {
-            if (!EditorValidationToggle.IsValidationEnabled)
-            {
-                return;
-            }
-
             var path = AssetDatabase.GUIDToAssetPath(guid);
             if (string.IsNullOrEmpty(path) || !path.EndsWith(".asset"))
             {
@@ -64,7 +54,7 @@ namespace UValidation.Editor
 
         private static void OnPlayModeChanged(PlayModeStateChange state)
         {
-            if (!EditorValidationToggle.IsValidationEnabled)
+            if (!ValidationEnforcement.BlockPlayMode)
             {
                 return;
             }
@@ -86,14 +76,9 @@ namespace UValidation.Editor
 
         private static void OnFinishedDefaultHeaderGUI(UnityEditor.Editor editor)
         {
-            if (!EditorValidationToggle.IsValidationEnabled)
-            {
-                return;
-            }
-
             if (editor.target is UnityEngine.Object target && !ValidationHelper.IsScriptValid(target, false))
             {
-                EditorGUILayout.HelpBox("Validation Failed: This object contains invalid data. It cannot be saved or used in Play Mode.", MessageType.Error);
+                EditorGUILayout.HelpBox("Validation Failed: This object contains invalid data.", MessageType.Error);
             }
         }
 

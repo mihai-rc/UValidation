@@ -11,14 +11,12 @@ namespace UValidation.Showcase.Editor
     /// </summary>
     public static class InheritanceShowcaseBuilder
     {
-        private const string k_ValidationEnabledKey = "Framework.EnableValidation";
-        private const string k_ValidationMenuPath = "HighTower/Enable Validation";
         private const string k_ScenePath = "Assets/Scenes/ValidationInheritanceShowcase.unity";
 
         /// <summary>
         /// Rebuilds the inheritance showcase without replacing the open scenes.
         /// </summary>
-        [MenuItem("HighTower/UValidation/Rebuild Inheritance Showcase")]
+        [MenuItem("UValidation/Rebuild Inheritance Showcase")]
         public static void RebuildShowcaseScene()
         {
             BuildScene(k_ScenePath);
@@ -38,10 +36,7 @@ namespace UValidation.Showcase.Editor
             }
 
             var previousScene = SceneManager.GetActiveScene();
-            var hadValidationPreference = EditorPrefs.HasKey(k_ValidationEnabledKey);
-            var wasValidationEnabled = EditorPrefs.GetBool(k_ValidationEnabledKey, true);
             var scene = default(Scene);
-            EditorPrefs.SetBool(k_ValidationEnabledKey, false);
 
             try
             {
@@ -71,17 +66,6 @@ namespace UValidation.Showcase.Editor
                 {
                     SceneManager.SetActiveScene(previousScene);
                 }
-
-                if (hadValidationPreference)
-                {
-                    EditorPrefs.SetBool(k_ValidationEnabledKey, wasValidationEnabled);
-                }
-                else
-                {
-                    EditorPrefs.DeleteKey(k_ValidationEnabledKey);
-                }
-
-                Menu.SetChecked(k_ValidationMenuPath, wasValidationEnabled);
             }
         }
 

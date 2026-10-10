@@ -17,7 +17,7 @@ namespace UValidation.Editor
 
         private static string[] OnWillSaveAssets(string[] paths)
         {
-            if (!EditorValidationToggle.IsValidationEnabled)
+            if (!ValidationEnforcement.BlockInvalidSaves)
             {
                 return paths;
             }
@@ -44,7 +44,7 @@ namespace UValidation.Editor
 
         private static bool OnWantsToQuit()
         {
-            if (!EditorValidationToggle.IsValidationEnabled)
+            if (!ValidationEnforcement.BlockEditorQuit)
             {
                 return true;
             }

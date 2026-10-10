@@ -10,21 +10,17 @@ namespace UValidation.Tests
 {
     public class PrefabValidationTests
     {
-        private const string k_ValidationEnabledKey = "Framework.EnableValidation";
         private const string k_TestFolderName = "__UValidationPrefabTests";
         private const string k_TestFolderPath = "Assets/" + k_TestFolderName;
         private const string k_ValidValue = "Valid";
 
-        private bool m_HadValidationPreference;
-        private bool m_WasValidationEnabled;
+        private bool m_BlockInvalidSaves;
 
         [SetUp]
         public void SetUp()
         {
-            m_HadValidationPreference = EditorPrefs.HasKey(k_ValidationEnabledKey);
-            m_WasValidationEnabled = EditorPrefs.GetBool(k_ValidationEnabledKey, true);
-            EditorPrefs.SetBool(k_ValidationEnabledKey, false);
-
+            m_BlockInvalidSaves = UValidationProjectSettings.Instance.BlockInvalidSaves;
+            UValidationProjectSettings.Instance.BlockInvalidSaves = false;
             StageUtility.GoToMainStage();
             AssetDatabase.DeleteAsset(k_TestFolderPath);
             AssetDatabase.CreateFolder("Assets", k_TestFolderName);
@@ -38,14 +34,7 @@ namespace UValidation.Tests
 
             AssetDatabase.DeleteAsset(k_TestFolderPath);
 
-            if (m_HadValidationPreference)
-            {
-                EditorPrefs.SetBool(k_ValidationEnabledKey, m_WasValidationEnabled);
-            }
-            else
-            {
-                EditorPrefs.DeleteKey(k_ValidationEnabledKey);
-            }
+            UValidationProjectSettings.Instance.BlockInvalidSaves = m_BlockInvalidSaves;
         }
 
         [Test]

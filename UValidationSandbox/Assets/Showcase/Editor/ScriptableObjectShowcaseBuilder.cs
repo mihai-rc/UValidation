@@ -9,76 +9,63 @@ namespace UValidation.Showcase.Editor
     /// </summary>
     public static class ScriptableObjectShowcaseBuilder
     {
-        private const string k_ValidationEnabledKey = "Framework.EnableValidation";
-        private const string k_ValidationMenuPath = "HighTower/Enable Validation";
         private const string k_ShowcaseFolderPath = "Assets/Showcase/ScriptableObjects";
         private const string k_SharedFolderPath = k_ShowcaseFolderPath + "/_Shared";
 
         /// <summary>
         /// Rebuilds the valid and invalid ScriptableObject showcase assets.
         /// </summary>
-        [MenuItem("HighTower/UValidation/Rebuild ScriptableObject Showcase")]
+        [MenuItem("UValidation/Rebuild ScriptableObject Showcase")]
         public static void RebuildScriptableObjectShowcase()
         {
-            var wasValidationEnabled = EditorPrefs.GetBool(k_ValidationEnabledKey, true);
-            EditorPrefs.SetBool(k_ValidationEnabledKey, false);
+            RecreateShowcaseFolders();
+            var reference = CreateReferenceAsset();
 
-            try
+            var validAsset = CreateShowcaseAsset("01 - Valid.asset", reference);
+
+            CreateShowcaseAsset("02 - NotNull Failure.asset", reference,
+                serializedObject => SetObject(serializedObject, "m_RequiredReference", null));
+
+            CreateShowcaseAsset("03 - NotEmpty Failure.asset", reference, serializedObject =>
             {
-                RecreateShowcaseFolders();
-                var reference = CreateReferenceAsset();
+                SetString(serializedObject, "m_RequiredName", "");
+                SetIntegerArray(serializedObject, "m_RequiredValues");
+            });
 
-                var validAsset = CreateShowcaseAsset("01 - Valid.asset", reference);
+            CreateShowcaseAsset("04 - HasNoNulls Failure.asset", reference,
+                serializedObject => SetObjectArray(
+                    serializedObject, "m_References", reference, null));
 
-                CreateShowcaseAsset("02 - NotNull Failure.asset", reference,
-                    serializedObject => SetObject(serializedObject, "m_RequiredReference", null));
+            CreateShowcaseAsset("05 - HasNoEmpties Failure.asset", reference,
+                serializedObject => SetStringArray(
+                    serializedObject, "m_Labels", "Alpha", ""));
 
-                CreateShowcaseAsset("03 - NotEmpty Failure.asset", reference, serializedObject =>
-                {
-                    SetString(serializedObject, "m_RequiredName", "");
-                    SetIntegerArray(serializedObject, "m_RequiredValues");
-                });
-
-                CreateShowcaseAsset("04 - HasNoNulls Failure.asset", reference,
-                    serializedObject => SetObjectArray(
-                        serializedObject, "m_References", reference, null));
-
-                CreateShowcaseAsset("05 - HasNoEmpties Failure.asset", reference,
-                    serializedObject => SetStringArray(
-                        serializedObject, "m_Labels", "Alpha", ""));
-
-                CreateShowcaseAsset("06 - IsValid Failure.asset", reference, serializedObject =>
-                {
-                    SetString(serializedObject, "m_Nested.m_Name", "");
-                    SetObject(serializedObject, "m_Nested.m_Target", null);
-                });
-
-                CreateShowcaseAsset("07 - IValidatable Failure.asset", reference,
-                    serializedObject => SetInteger(serializedObject, "m_CurrentValue", 4));
-
-                CreateShowcaseAsset("08 - Combined Failures.asset", reference, serializedObject =>
-                {
-                    SetObject(serializedObject, "m_RequiredReference", null);
-                    SetString(serializedObject, "m_RequiredName", "");
-                    SetIntegerArray(serializedObject, "m_RequiredValues");
-                    SetObjectArray(serializedObject, "m_References", reference, null);
-                    SetStringArray(serializedObject, "m_Labels", "Alpha", "");
-                    SetString(serializedObject, "m_Nested.m_Name", "");
-                    SetObject(serializedObject, "m_Nested.m_Target", null);
-                    SetInteger(serializedObject, "m_CurrentValue", 4);
-                });
-
-                AssetDatabase.SaveAssets();
-                AssetDatabase.Refresh();
-                Selection.activeObject = validAsset;
-                EditorGUIUtility.PingObject(validAsset);
-                Debug.Log($"UValidation ScriptableObject showcase rebuilt at '{k_ShowcaseFolderPath}'.");
-            }
-            finally
+            CreateShowcaseAsset("06 - IsValid Failure.asset", reference, serializedObject =>
             {
-                EditorPrefs.SetBool(k_ValidationEnabledKey, wasValidationEnabled);
-                Menu.SetChecked(k_ValidationMenuPath, wasValidationEnabled);
-            }
+                SetString(serializedObject, "m_Nested.m_Name", "");
+                SetObject(serializedObject, "m_Nested.m_Target", null);
+            });
+
+            CreateShowcaseAsset("07 - IValidatable Failure.asset", reference,
+                serializedObject => SetInteger(serializedObject, "m_CurrentValue", 4));
+
+            CreateShowcaseAsset("08 - Combined Failures.asset", reference, serializedObject =>
+            {
+                SetObject(serializedObject, "m_RequiredReference", null);
+                SetString(serializedObject, "m_RequiredName", "");
+                SetIntegerArray(serializedObject, "m_RequiredValues");
+                SetObjectArray(serializedObject, "m_References", reference, null);
+                SetStringArray(serializedObject, "m_Labels", "Alpha", "");
+                SetString(serializedObject, "m_Nested.m_Name", "");
+                SetObject(serializedObject, "m_Nested.m_Target", null);
+                SetInteger(serializedObject, "m_CurrentValue", 4);
+            });
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Selection.activeObject = validAsset;
+            EditorGUIUtility.PingObject(validAsset);
+            Debug.Log($"UValidation ScriptableObject showcase rebuilt at '{k_ShowcaseFolderPath}'.");
         }
 
         private static void RecreateShowcaseFolders()

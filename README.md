@@ -55,3 +55,20 @@ may throw and should be recorded as a validation failure:
 ```csharp
 validation.IsTrue(nameof(m_Config), m_Config, config => config.CalculateValue() > 0);
 ```
+
+## Editor enforcement policies
+
+Validation feedback is always active in property drawers, Inspector headers, and the Hierarchy and
+Project windows. Enforcement is configured separately under **Project Settings > UValidation**:
+
+- block invalid scene, prefab, and ScriptableObject saves;
+- block Play Mode when the active scene is invalid;
+- block Editor quit when a dirty ScriptableObject asset is invalid;
+- fail player builds when a processed scene is invalid.
+
+Fresh projects start with all enforcement policies disabled. When enabled, the settings are stored
+in `ProjectSettings/UValidationSettings.asset`, so a team can commit and share them with the project.
+
+The old `Framework.EnableValidation` Editor preference is no longer used. Existing installations
+therefore start from the new project policies rather than inheriting a machine-wide setting from an
+unrelated project.
