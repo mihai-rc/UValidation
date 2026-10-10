@@ -1,4 +1,5 @@
 using System.Collections;
+using System.IO;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -12,6 +13,7 @@ namespace UValidation.Tests
     {
         private const string k_TestFolderName = "__UValidationPrefabTests";
         private const string k_TestFolderPath = "Assets/" + k_TestFolderName;
+        private const string k_MissingScriptGuid = "ffffffffffffffffffffffffffffffff";
         private const string k_ValidValue = "Valid";
 
         private bool m_BlockInvalidSaves;
@@ -110,6 +112,24 @@ namespace UValidation.Tests
                 ValidationHelper.ValidateAssetAtPathForSave(missingPath, false));
         }
 
+        [Test]
+        public void MissingScript_IsRejectedAndReportsOwningGameObject()
+        {
+            var prefabPath = CreatePrefabWithMissingScript();
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+
+            Assert.IsNotNull(prefab);
+            Assert.AreEqual(1, GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(prefab));
+            Assert.IsFalse(ValidationHelper.IsGameObjectValid(prefab, false));
+
+            LogAssert.Expect(
+                LogType.Error,
+                "[Validation] GameObject 'MissingScript' contains 1 missing MonoBehaviour script.");
+            Assert.IsFalse(ValidationHelper.IsGameObjectValid(prefab, true));
+            Assert.IsFalse(ValidationHelper.IsPrefabValidAtPath(prefabPath, false));
+            LogAssert.NoUnexpectedReceived();
+        }
+
         private static string CreatePrefab(string name, string value)
         {
             var path = $"{k_TestFolderPath}/{name}.prefab";
@@ -126,6 +146,25 @@ namespace UValidation.Tests
             {
                 Object.DestroyImmediate(source);
             }
+        }
+
+        private static string CreatePrefabWithMissingScript()
+        {
+            var prefabPath = CreatePrefab("MissingScript", k_ValidValue);
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            var probe = prefab.GetComponent<PrefabValidationProbe>();
+            var scriptPath = AssetDatabase.GetAssetPath(MonoScript.FromMonoBehaviour(probe));
+            var scriptGuid = AssetDatabase.AssetPathToGUID(scriptPath);
+            var projectPath = Path.GetDirectoryName(Application.dataPath);
+            var absolutePrefabPath = Path.Combine(projectPath, prefabPath);
+            var yaml = File.ReadAllText(absolutePrefabPath);
+
+            Assert.That(yaml, Does.Contain($"guid: {scriptGuid}"));
+            File.WriteAllText(
+                absolutePrefabPath,
+                yaml.Replace($"guid: {scriptGuid}", $"guid: {k_MissingScriptGuid}"));
+            AssetDatabase.ImportAsset(prefabPath, ImportAssetOptions.ForceUpdate);
+            return prefabPath;
         }
     }
 }

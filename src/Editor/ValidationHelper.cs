@@ -196,6 +196,21 @@ namespace UValidation.Editor
                 return false;
             }
 
+            var missingScriptCount = GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(gameObject);
+            if (missingScriptCount > 0)
+            {
+                if (reportError)
+                {
+                    var suffix = missingScriptCount == 1 ? "script" : "scripts";
+                    Debug.LogError(
+                        $"[Validation] GameObject '{gameObject.name}' contains " +
+                        $"{missingScriptCount} missing MonoBehaviour {suffix}.",
+                        gameObject);
+                }
+
+                return false;
+            }
+
             return gameObject
                 .GetComponents<MonoBehaviour>()
                 .All(script => IsScriptValid(script, reportError));
