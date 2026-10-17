@@ -10,7 +10,7 @@ namespace UValidation.Editor
         private const string k_SceneDialogTitle = "Validation Failed!";
         private const string k_DialogSaveSceneMessage = "There are GameObjects with required fields that are not set. Please fix them before saving the scene.";
         private const string k_DialogPlayMessage = "There are GameObjects with required fields that are not set. Please fix them before playing the scene.";
-        private const string k_DialogSavePrefabMessage = "There are GameObjects with required fields that are not set. Please fix them before playing the scene.";
+        private const string k_DialogSavePrefabMessage = "There are GameObjects with required fields that are not set. Please fix them before saving the prefab.";
         private const string k_DialogSaveScriptableObjectMessage = "This ScriptableObject has required fields that are not set. Please fix them before saving.";
         private const string k_DialogButton = "Ok";
 
