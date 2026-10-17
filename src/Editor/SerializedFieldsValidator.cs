@@ -39,6 +39,18 @@ namespace UValidation.Editor
             }
         }
 
+        private sealed class ValidationTraversalState
+        {
+            public readonly HashSet<object> ObjectPath = new(ReferenceComparer.Instance);
+            public readonly HashSet<FieldInfo> ReportedNonSerializedFields = new();
+            public readonly UnityEngine.Object Context;
+
+            public ValidationTraversalState(UnityEngine.Object context)
+            {
+                Context = context;
+            }
+        }
+
         private static readonly Dictionary<Type, List<FieldValidationData>> s_Cache = new();
 
         /// <summary>
@@ -51,26 +63,31 @@ namespace UValidation.Editor
                 return;
             }
 
-            var traversalPath = new HashSet<object>(ReferenceComparer.Instance);
-            ValidateAttributesInternal(target, validation, traversalPath);
+            var traversalState = new ValidationTraversalState(target);
+            ValidateAttributesInternal(target, validation, traversalState);
         }
 
         private static void ValidateAttributesInternal(
             UnityEngine.Object target,
             Validation validation,
-            HashSet<object> traversalPath)
+            ValidationTraversalState traversalState)
         {
             var type = target.GetType();
             var fieldsAttributeData = GetFieldsAttributeData(type);
 
             foreach (var data in fieldsAttributeData)
             {
+                if (!IsSerializedField(data.Field, traversalState))
+                {
+                    continue;
+                }
+
                 var value = data.Field.GetValue(target);
                 ApplyFieldValidation(data, data.CleanName, value, validation);
 
                 if (data.IsValid != null && value != null)
                 {
-                    ValidateNestedValue(data.IsValidTarget, value, data.CleanName, validation, traversalPath);
+                    ValidateNestedValue(data.IsValidTarget, value, data.CleanName, validation, traversalState);
                 }
             }
 
@@ -86,12 +103,12 @@ namespace UValidation.Editor
         /// <param name="nestedObj">The nested object instance to validate.</param>
         /// <param name="parentFieldName">The field name of the parent (used as prefix in error messages).</param>
         /// <param name="validation">The validation context to accumulate failures into.</param>
-        /// <param name="traversalPath"> Reference-identity set containing the active recursion path. </param>
+        /// <param name="traversalState"> State shared across the current recursive traversal. </param>
         private static void ValidateNestedObject(
             object nestedObj,
             string parentFieldName,
             Validation validation,
-            HashSet<object> traversalPath)
+            ValidationTraversalState traversalState)
         {
             if (nestedObj == null)
             {
@@ -104,7 +121,7 @@ namespace UValidation.Editor
                 return;
             }
 
-            if (!traversalPath.Add(nestedObj))
+            if (!traversalState.ObjectPath.Add(nestedObj))
             {
                 return;
             }
@@ -115,13 +132,18 @@ namespace UValidation.Editor
 
                 foreach (var data in handlers)
                 {
+                    if (!IsSerializedField(data.Field, traversalState))
+                    {
+                        continue;
+                    }
+
                     var value = data.Field.GetValue(nestedObj);
                     var qualifiedName = $"{parentFieldName}.{data.CleanName}";
                     ApplyFieldValidation(data, qualifiedName, value, validation);
 
                     if (data.IsValid != null && value != null)
                     {
-                        ValidateNestedValue(data.IsValidTarget, value, qualifiedName, validation, traversalPath);
+                        ValidateNestedValue(data.IsValidTarget, value, qualifiedName, validation, traversalState);
                     }
                 }
 
@@ -132,7 +154,7 @@ namespace UValidation.Editor
             }
             finally
             {
-                traversalPath.Remove(nestedObj);
+                traversalState.ObjectPath.Remove(nestedObj);
             }
         }
 
@@ -161,11 +183,11 @@ namespace UValidation.Editor
             object value,
             string fieldName,
             Validation validation,
-            HashSet<object> traversalPath)
+            ValidationTraversalState traversalState)
         {
             if (targetKind == IsValidTargetKind.Object)
             {
-                ValidateNestedObject(value, fieldName, validation, traversalPath);
+                ValidateNestedObject(value, fieldName, validation, traversalState);
                 return;
             }
 
@@ -179,7 +201,7 @@ namespace UValidation.Editor
             {
                 if (element != null)
                 {
-                    ValidateNestedObject(element, $"{fieldName}[{index}]", validation, traversalPath);
+                    ValidateNestedObject(element, $"{fieldName}[{index}]", validation, traversalState);
                 }
 
                 index++;
@@ -229,6 +251,119 @@ namespace UValidation.Editor
 
             s_Cache[type] = handlers;
             return handlers;
+        }
+
+        private static bool IsSerializedField(
+            FieldInfo field,
+            ValidationTraversalState traversalState)
+        {
+            var hasSerializationAttribute =
+                field.IsDefined(typeof(SerializeField), true) ||
+                field.IsDefined(typeof(SerializeReference), true);
+            var isSerialized =
+                !field.IsStatic &&
+                !field.IsLiteral &&
+                !field.IsInitOnly &&
+                !field.IsNotSerialized &&
+                (field.IsPublic || hasSerializationAttribute) &&
+                IsSupportedSerializedType(field);
+
+            if (isSerialized)
+            {
+                return true;
+            }
+
+            if (traversalState.ReportedNonSerializedFields.Add(field))
+            {
+                var fieldName = $"{field.DeclaringType?.FullName}.{field.Name}";
+                Debug.LogWarning(
+                    $"[UValidation] Validation attributes on nonserialized field '{fieldName}' are ignored. " +
+                    "Remove the validation attributes or make the field serializable according to Unity's rules.",
+                    traversalState.Context);
+            }
+
+            return false;
+        }
+
+        private static bool IsSupportedSerializedType(FieldInfo field)
+        {
+            return field.IsDefined(typeof(SerializeReference), true)
+                ? IsSupportedManagedReferenceType(field.FieldType, true)
+                : IsSupportedInlineType(field.FieldType, true);
+        }
+
+        private static bool IsSupportedInlineType(Type type, bool allowContainer)
+        {
+            if (type == null)
+            {
+                return false;
+            }
+
+            if (type.IsPrimitive ||
+                type.IsEnum ||
+                type == typeof(string) ||
+                typeof(UnityEngine.Object).IsAssignableFrom(type))
+            {
+                return true;
+            }
+
+            if (type.IsArray)
+            {
+                return allowContainer &&
+                       type.GetArrayRank() == 1 &&
+                       IsSupportedInlineType(type.GetElementType(), false);
+            }
+
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
+            {
+                return allowContainer &&
+                       IsSupportedInlineType(type.GetGenericArguments()[0], false);
+            }
+
+            if (type.IsInterface ||
+                type.IsAbstract ||
+                type.IsGenericTypeDefinition ||
+                typeof(IDictionary).IsAssignableFrom(type) ||
+                typeof(Delegate).IsAssignableFrom(type) ||
+                type.Namespace?.StartsWith("System", StringComparison.Ordinal) == true)
+            {
+                return false;
+            }
+
+            return type.IsDefined(typeof(SerializableAttribute), false);
+        }
+
+        private static bool IsSupportedManagedReferenceType(Type type, bool allowContainer)
+        {
+            if (type == null)
+            {
+                return false;
+            }
+
+            if (type.IsArray)
+            {
+                return allowContainer &&
+                       type.GetArrayRank() == 1 &&
+                       IsSupportedManagedReferenceType(type.GetElementType(), false);
+            }
+
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
+            {
+                return allowContainer &&
+                       IsSupportedManagedReferenceType(type.GetGenericArguments()[0], false);
+            }
+
+            if (type.IsValueType ||
+                type == typeof(string) ||
+                typeof(UnityEngine.Object).IsAssignableFrom(type) ||
+                typeof(Delegate).IsAssignableFrom(type))
+            {
+                return false;
+            }
+
+            return type == typeof(object) ||
+                   type.IsInterface ||
+                   type.IsDefined(typeof(SerializableAttribute), false);
         }
 
         private static void ApplyFieldValidation(FieldValidationData data, string fieldName, object value, Validation validation)

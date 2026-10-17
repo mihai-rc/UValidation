@@ -51,6 +51,41 @@ namespace UValidation.Tests
             [SerializeField, NotEmpty] private int m_Number;
         }
 
+        private sealed class PrivateNonSerializedAttributeHost : MonoBehaviour
+        {
+            [NotEmpty] private string m_RuntimeValue = string.Empty;
+        }
+
+        private sealed class PublicNonSerializedAttributeHost : MonoBehaviour
+        {
+            [NonSerialized, NotEmpty] public string RuntimeValue = string.Empty;
+        }
+
+        private sealed class PublicSerializedAttributeHost : MonoBehaviour
+        {
+            [NotEmpty] public string Value = string.Empty;
+        }
+
+        private sealed class NonSerializableData
+        {
+        }
+
+        private sealed class UnsupportedSerializedTypeHost : MonoBehaviour
+        {
+            [SerializeField, NotEmpty] private List<NonSerializableData> m_Values = new();
+        }
+
+        [Serializable]
+        private sealed class NonSerializedNestedData
+        {
+            [NotEmpty] private string m_RuntimeValue = string.Empty;
+        }
+
+        private sealed class NonSerializedNestedHost : MonoBehaviour
+        {
+            [SerializeField, IsValid] private NonSerializedNestedData m_Data = new();
+        }
+
         [Test]
         public void IsTrue_NullPredicate_RecordsFailure()
         {
@@ -226,6 +261,55 @@ namespace UValidation.Tests
         }
 
         [Test]
+        public void AttributeValidation_PrivateNonSerializedField_IsIgnoredAndWarned()
+        {
+            AssertNonSerializedFieldIsIgnoredAndWarned<PrivateNonSerializedAttributeHost>(
+                "m_RuntimeValue");
+        }
+
+        [Test]
+        public void AttributeValidation_PublicNonSerializedField_IsIgnoredAndWarned()
+        {
+            AssertNonSerializedFieldIsIgnoredAndWarned<PublicNonSerializedAttributeHost>(
+                nameof(PublicNonSerializedAttributeHost.RuntimeValue));
+        }
+
+        [Test]
+        public void AttributeValidation_PublicSerializedField_IsValidated()
+        {
+            var gameObject = new GameObject(nameof(PublicSerializedAttributeHost));
+            try
+            {
+                var host = gameObject.AddComponent<PublicSerializedAttributeHost>();
+                using var validation = new Validation(host);
+
+                SerializedFieldsValidator.ValidateAttributes(host, validation);
+
+                Assert.IsTrue(validation.Failed);
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [Test]
+        public void AttributeValidation_UnsupportedSerializedType_IsIgnoredAndWarned()
+        {
+            AssertNonSerializedFieldIsIgnoredAndWarned<UnsupportedSerializedTypeHost>(
+                "m_Values");
+        }
+
+        [Test]
+        public void AttributeValidation_NestedNonSerializedField_IsIgnoredAndWarned()
+        {
+            AssertNonSerializedFieldIsIgnoredAndWarned<NonSerializedNestedHost>(
+                "m_RuntimeValue",
+                typeof(NonSerializedNestedData));
+        }
+
+        [Test]
         public void IsGameObjectValid_ReportErrors_ReportsEveryInvalidComponent()
         {
             var gameObject = new GameObject("MultipleInvalidComponents");
@@ -365,6 +449,37 @@ namespace UValidation.Tests
             finally
             {
                 UnityEngine.Object.DestroyImmediate(go);
+            }
+        }
+
+        private static void AssertNonSerializedFieldIsIgnoredAndWarned<THost>(
+            string fieldName,
+            Type declaringType = null)
+            where THost : MonoBehaviour
+        {
+            declaringType ??= typeof(THost);
+            var qualifiedFieldName = $"{declaringType.FullName}.{fieldName}";
+            LogAssert.Expect(
+                LogType.Warning,
+                new Regex(
+                    Regex.Escape(
+                        $"[UValidation] Validation attributes on nonserialized field " +
+                        $"'{qualifiedFieldName}' are ignored.")));
+
+            var gameObject = new GameObject(typeof(THost).Name);
+            try
+            {
+                var host = gameObject.AddComponent<THost>();
+                using var validation = new Validation(host);
+
+                SerializedFieldsValidator.ValidateAttributes(host, validation);
+
+                Assert.IsTrue(validation.Passed);
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
             }
         }
     }
