@@ -16,10 +16,12 @@ namespace UValidation.Tests
     {
         private const string k_TestFolderName = "__UValidationSceneSaveTests";
         private const string k_TestFolderPath = "Assets/" + k_TestFolderName;
+        private const string k_BaseScenePath = k_TestFolderPath + "/Base.unity";
         private const string k_ValidValue = "Valid";
 
         private readonly List<Scene> m_Scenes = new();
         private bool m_BlockInvalidSaves;
+        private bool m_OpenedBaseScene;
 
         [SetUp]
         public void SetUp()
@@ -29,6 +31,7 @@ namespace UValidation.Tests
             AssetValidator.PromptOnBlockedSave = false;
             AssetDatabase.DeleteAsset(k_TestFolderPath);
             AssetDatabase.CreateFolder("Assets", k_TestFolderName);
+            m_OpenedBaseScene = OpenSavedSceneIfUntitled();
         }
 
         [TearDown]
@@ -41,6 +44,11 @@ namespace UValidation.Tests
                 {
                     EditorSceneManager.CloseScene(scene, true);
                 }
+            }
+
+            if (m_OpenedBaseScene)
+            {
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             }
 
             m_Scenes.Clear();
@@ -191,6 +199,22 @@ namespace UValidation.Tests
         private static Regex CreateNewAssetFailurePattern(string sceneName)
         {
             return new Regex($@"UValidation found invalid data in newly created asset '.*/{Regex.Escape(sceneName)}\.unity'");
+        }
+
+        private static bool OpenSavedSceneIfUntitled()
+        {
+            // Unity refuses to create additive scenes while an untitled scene is loaded, which is how EditMode runs start.
+            for (var i = 0; i < SceneManager.sceneCount; i++)
+            {
+                if (string.IsNullOrEmpty(SceneManager.GetSceneAt(i).path))
+                {
+                    var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                    Assert.IsTrue(EditorSceneManager.SaveScene(scene, k_BaseScenePath));
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }
