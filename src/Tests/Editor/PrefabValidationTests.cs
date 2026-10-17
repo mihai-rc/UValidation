@@ -109,7 +109,7 @@ namespace UValidation.Tests
 
             Assert.IsFalse(ValidationHelper.IsPrefabValidAtPath(missingPath, false));
             Assert.AreEqual(
-                AssetValidationState.PendingCreation,
+                AssetValidationState.ValidateAfterImport,
                 ValidationHelper.ValidateAssetAtPathForSave(missingPath, false));
         }
 

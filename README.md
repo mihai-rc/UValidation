@@ -71,8 +71,15 @@ in `ProjectSettings/UValidationSettings.asset`, so a team can commit and share t
 
 Unity may announce a newly created scene, prefab, or ScriptableObject before the AssetDatabase can
 read it. UValidation allows that initial creation to finish, validates the imported contents
-immediately afterward, and reports and highlights any failure. Once the asset exists, later invalid
-saves are blocked normally.
+immediately afterward, and reports and highlights any failure, so a new asset can be configured
+afterwards, for example in Prefab Mode. Once the asset exists, later invalid saves are blocked
+normally.
+
+Unity writes some prefab changes from objects the save callback cannot inspect, such as **Apply
+Overrides** on a prefab instance or `PrefabUtility.SaveAsPrefabAsset` onto an existing prefab. Those
+saves are allowed, and UValidation validates the prefab as soon as Unity imports it, then reports
+and highlights any failure. Saves from Prefab Mode and edits made directly to a prefab asset are
+blocked when invalid.
 
 The old `Framework.EnableValidation` Editor preference is no longer used. Existing installations
 therefore start from the new project policies rather than inheriting a machine-wide setting from an

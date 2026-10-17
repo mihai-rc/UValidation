@@ -18,9 +18,14 @@ namespace UValidation.Editor
         /// <param name="prefabPath"> The path to the prefab asset. </param>
         /// <param name="reportError"> Whether errors should be reported. </param>
         /// <returns> True if the prefab is valid; otherwise, false. </returns>
+        /// <remarks>
+        /// When the prefab is open in Prefab Mode, its unsaved stage contents are validated. Otherwise the loaded
+        /// prefab asset is validated, including changes made to it that have not been saved yet.
+        /// </remarks>
         public static bool IsPrefabValidAtPath(string prefabPath, bool reportError)
         {
-            if (AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) == null)
+            var prefabRoot = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            if (prefabRoot == null)
             {
                 return false;
             }
@@ -32,34 +37,7 @@ namespace UValidation.Editor
                 return IsGameObjectValidRecursively(prefabStage.prefabContentsRoot, reportError);
             }
 
-            GameObject prefabRoot = null;
-            var isValid = false;
-            try
-            {
-                prefabRoot = PrefabUtility.LoadPrefabContents(prefabPath);
-                isValid = IsGameObjectValidRecursively(prefabRoot, reportError);
-            }
-            catch (Exception exception)
-            {
-                ReportUnreadableAsset("prefab", prefabPath, exception, reportError);
-            }
-            finally
-            {
-                if (prefabRoot != null)
-                {
-                    try
-                    {
-                        PrefabUtility.UnloadPrefabContents(prefabRoot);
-                    }
-                    catch (Exception exception)
-                    {
-                        ReportUnreadableAsset("prefab", prefabPath, exception, reportError);
-                        isValid = false;
-                    }
-                }
-            }
-
-            return isValid;
+            return IsGameObjectValidRecursively(prefabRoot, reportError);
         }
 
         /// <summary>
@@ -134,7 +112,7 @@ namespace UValidation.Editor
         }
 
         /// <summary>
-        /// Determines whether a save candidate is valid or must wait for its initial import.
+        /// Determines whether a save candidate is valid or must be validated after Unity imports it.
         /// </summary>
         /// <param name="assetPath"> The asset path reported by Unity. </param>
         /// <param name="reportError"> Whether validation errors should be reported. </param>
@@ -157,6 +135,25 @@ namespace UValidation.Editor
             }
 
             return AssetValidationState.Valid;
+        }
+
+        /// <summary>
+        /// Validates the contents Unity imported after saving an asset.
+        /// </summary>
+        /// <param name="assetPath"> The imported asset path. </param>
+        /// <param name="reportError"> Whether validation errors should be reported. </param>
+        /// <returns> The state of the imported contents, or <see cref="AssetValidationState.ValidateAfterImport"/> if they are not readable yet. </returns>
+        internal static AssetValidationState ValidateImportedAssetAtPath(string assetPath, bool reportError)
+        {
+            if (!assetPath.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
+            {
+                return ValidateAssetAtPathForSave(assetPath, reportError);
+            }
+
+            var prefabRoot = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+            return prefabRoot == null
+                ? GetUnreadableAssetState(assetPath)
+                : ToState(IsGameObjectValidRecursively(prefabRoot, reportError));
         }
 
         /// <summary>
@@ -295,14 +292,34 @@ namespace UValidation.Editor
                 return ToState(IsGameObjectValidRecursively(prefabStage.prefabContentsRoot, reportError));
             }
 
-            if (AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) == null)
+            var prefabRoot = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            if (prefabRoot == null)
             {
-                return AssetDatabase.AssetPathExists(prefabPath)
-                    ? AssetValidationState.Invalid
-                    : AssetValidationState.PendingCreation;
+                return GetUnreadableAssetState(prefabPath);
             }
 
-            return ToState(IsPrefabValidAtPath(prefabPath, reportError));
+            // Apply Overrides and SaveAsPrefabAsset write contents built from objects this callback cannot
+            // reach, while the loaded asset still holds the previous version. Only unsaved changes on the
+            // loaded asset prove that it is the version being saved.
+            if (!HasUnsavedChanges(prefabPath))
+            {
+                return AssetValidationState.ValidateAfterImport;
+            }
+
+            return ToState(IsGameObjectValidRecursively(prefabRoot, reportError));
+        }
+
+        private static bool HasUnsavedChanges(string assetPath)
+        {
+            foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(assetPath))
+            {
+                if (asset != null && EditorUtility.IsDirty(asset))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static AssetValidationState ValidateSceneAtPathForSave(string scenePath, bool reportError)
@@ -315,9 +332,7 @@ namespace UValidation.Editor
 
             if (AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath) == null)
             {
-                return AssetDatabase.AssetPathExists(scenePath)
-                    ? AssetValidationState.Invalid
-                    : AssetValidationState.PendingCreation;
+                return GetUnreadableAssetState(scenePath);
             }
 
             return ToState(IsSceneValidAtPath(scenePath, reportError));
@@ -329,9 +344,7 @@ namespace UValidation.Editor
         {
             if (AssetDatabase.LoadMainAssetAtPath(assetPath) == null)
             {
-                return AssetDatabase.AssetPathExists(assetPath)
-                    ? AssetValidationState.Invalid
-                    : AssetValidationState.PendingCreation;
+                return GetUnreadableAssetState(assetPath);
             }
 
             var scriptableObjects = AssetDatabase
@@ -372,6 +385,14 @@ namespace UValidation.Editor
         private static AssetValidationState ToState(bool isValid)
         {
             return isValid ? AssetValidationState.Valid : AssetValidationState.Invalid;
+        }
+
+        private static AssetValidationState GetUnreadableAssetState(string assetPath)
+        {
+            // Unity can announce a newly created asset before the AssetDatabase can load it.
+            return AssetDatabase.AssetPathExists(assetPath)
+                ? AssetValidationState.Invalid
+                : AssetValidationState.ValidateAfterImport;
         }
 
         private static void ReportUnreadableAsset(

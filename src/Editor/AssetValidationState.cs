@@ -1,7 +1,7 @@
 namespace UValidation.Editor
 {
     /// <summary>
-    /// Describes whether an asset can be saved or still needs validation after creation.
+    /// Describes whether an asset can be saved or must be validated once Unity imports it.
     /// </summary>
     internal enum AssetValidationState
     {
@@ -16,8 +16,12 @@ namespace UValidation.Editor
         Invalid,
 
         /// <summary>
-        /// The asset does not exist in the AssetDatabase yet and must be validated after import.
+        /// The contents being saved are not readable yet and must be validated after Unity imports them.
         /// </summary>
-        PendingCreation
+        /// <remarks>
+        /// Used for assets that do not exist in the AssetDatabase yet, and for prefabs that Unity writes from
+        /// objects the save callback cannot reach, such as Apply Overrides or PrefabUtility.SaveAsPrefabAsset.
+        /// </remarks>
+        ValidateAfterImport
     }
 }

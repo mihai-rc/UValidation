@@ -6,11 +6,12 @@ using UnityEngine;
 namespace UValidation.Editor
 {
     /// <summary>
-    /// Tracks newly created assets until Unity makes them available through the AssetDatabase.
+    /// Tracks saved assets whose contents can only be validated once Unity imports them.
     /// </summary>
     internal static class PendingAssetValidation
     {
-        private static readonly HashSet<string> s_Paths = new(StringComparer.OrdinalIgnoreCase);
+        // Maps each queued path to whether the asset did not exist yet when it was queued.
+        private static readonly Dictionary<string, bool> s_Paths = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Queues a supported asset path for validation after import.
@@ -19,10 +20,13 @@ namespace UValidation.Editor
         internal static void Queue(string path)
         {
             var normalizedPath = Normalize(path);
-            if (IsSupported(normalizedPath))
+            if (!IsSupported(normalizedPath))
             {
-                s_Paths.Add(normalizedPath);
+                return;
             }
+
+            var isNew = !AssetDatabase.AssetPathExists(normalizedPath);
+            s_Paths[normalizedPath] = isNew || (s_Paths.TryGetValue(normalizedPath, out var wasNew) && wasNew);
         }
 
         /// <summary>
@@ -30,11 +34,12 @@ namespace UValidation.Editor
         /// </summary>
         /// <param name="path"> The imported asset path. </param>
         /// <param name="normalizedPath"> The normalized path that was queued. </param>
+        /// <param name="isNew"> Whether the asset did not exist yet when it was queued. </param>
         /// <returns> True if the asset was awaiting validation; otherwise, false. </returns>
-        internal static bool TryConsume(string path, out string normalizedPath)
+        internal static bool TryConsume(string path, out string normalizedPath, out bool isNew)
         {
             normalizedPath = Normalize(path);
-            return s_Paths.Remove(normalizedPath);
+            return s_Paths.Remove(normalizedPath, out isNew);
         }
 
         private static string Normalize(string path)
@@ -62,7 +67,7 @@ namespace UValidation.Editor
     }
 
     /// <summary>
-    /// Validates queued assets once Unity finishes importing their initial contents.
+    /// Validates queued assets once Unity finishes importing their saved contents.
     /// </summary>
     internal sealed class PendingAssetValidationPostprocessor : AssetPostprocessor
     {
@@ -74,46 +79,56 @@ namespace UValidation.Editor
         {
             foreach (var importedAsset in importedAssets)
             {
-                if (!PendingAssetValidation.TryConsume(importedAsset, out var pendingPath))
+                if (!PendingAssetValidation.TryConsume(importedAsset, out var pendingPath, out var isNew))
                 {
                     continue;
                 }
 
-                ValidateImportedAsset(pendingPath, false);
+                ValidateImportedAsset(pendingPath, isNew, false);
             }
         }
 
-        private static void ValidateImportedAsset(string path, bool isRetry)
+        private static void ValidateImportedAsset(string path, bool isNew, bool isRetry)
         {
             if (!ValidationEnforcement.BlockInvalidSaves)
             {
                 return;
             }
 
-            var validationState = ValidationHelper.ValidateAssetAtPathForSave(path, true);
+            var validationState = ValidationHelper.ValidateImportedAssetAtPath(path, true);
             if (validationState == AssetValidationState.Valid)
             {
                 return;
             }
 
-            if (validationState == AssetValidationState.PendingCreation && !isRetry)
+            if (validationState == AssetValidationState.ValidateAfterImport && !isRetry)
             {
-                EditorApplication.delayCall += () => ValidateImportedAsset(path, true);
+                EditorApplication.delayCall += () => ValidateImportedAsset(path, isNew, true);
                 return;
             }
 
             var asset = AssetDatabase.LoadMainAssetAtPath(path);
-            var message = validationState == AssetValidationState.Invalid
-                ? $"UValidation found invalid data in newly created asset '{path}'. Fix the reported errors before saving it again."
-                : $"UValidation could not read newly created asset '{path}' after Unity imported it. Its validation state is unknown.";
-
-            Debug.LogError(message, asset);
+            Debug.LogError(GetFailureMessage(path, validationState, isNew), asset);
             EditorApplication.RepaintProjectWindow();
 
             if (!Application.isBatchMode && asset != null)
             {
                 EditorGUIUtility.PingObject(asset);
             }
+        }
+
+        private static string GetFailureMessage(string path, AssetValidationState validationState, bool isNew)
+        {
+            if (validationState != AssetValidationState.Invalid)
+            {
+                var description = isNew ? "newly created asset" : "saved asset";
+                return $"UValidation could not read {description} '{path}' after Unity imported it. Its validation state is unknown.";
+            }
+
+            return isNew
+                ? $"UValidation found invalid data in newly created asset '{path}'. Fix the reported errors before saving it again."
+                : $"UValidation found invalid data in '{path}' after Unity saved it. Changes such as Apply Overrides " +
+                  "are written before UValidation can block them, so fix the reported errors or undo the change.";
         }
     }
 }

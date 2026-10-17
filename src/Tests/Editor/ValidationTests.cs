@@ -469,7 +469,7 @@ namespace UValidation.Tests
 
             Assert.IsFalse(ValidationHelper.IsSceneValidAtPath(unsavedScenePath, false));
             Assert.AreEqual(
-                AssetValidationState.PendingCreation,
+                AssetValidationState.ValidateAfterImport,
                 ValidationHelper.ValidateAssetAtPathForSave(unsavedScenePath, false));
         }
 

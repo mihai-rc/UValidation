@@ -16,6 +16,14 @@ namespace UValidation.Editor
             EditorApplication.wantsToQuit += OnWantsToQuit;
         }
 
+        /// <summary>
+        /// Gets or sets whether a blocked save shows the validation failure dialog.
+        /// </summary>
+        /// <remarks>
+        /// Editor tests turn this off so they can exercise save enforcement without a modal dialog.
+        /// </remarks>
+        internal static bool PromptOnBlockedSave { get; set; } = true;
+
         private static string[] OnWillSaveAssets(string[] paths)
         {
             if (!ValidationEnforcement.BlockInvalidSaves)
@@ -35,7 +43,7 @@ namespace UValidation.Editor
                         PromptValidationFailed(path);
                         validPaths.Remove(path);
                         break;
-                    case AssetValidationState.PendingCreation:
+                    case AssetValidationState.ValidateAfterImport:
                         PendingAssetValidation.Queue(path);
                         break;
                 }
@@ -85,6 +93,11 @@ namespace UValidation.Editor
 
         private static void PromptValidationFailed(string path)
         {
+            if (!PromptOnBlockedSave)
+            {
+                return;
+            }
+
             if (path.EndsWith(".unity", StringComparison.OrdinalIgnoreCase))
             {
                 ValidationFailedDialog.PromptSceneFailed();

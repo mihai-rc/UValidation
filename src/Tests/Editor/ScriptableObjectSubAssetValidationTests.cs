@@ -79,7 +79,7 @@ namespace UValidation.Tests
 
             Assert.IsFalse(ValidationHelper.IsScriptableObjectValidAtPath(missingPath, false));
             Assert.AreEqual(
-                AssetValidationState.PendingCreation,
+                AssetValidationState.ValidateAfterImport,
                 ValidationHelper.ValidateAssetAtPathForSave(missingPath, false));
         }
 
