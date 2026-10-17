@@ -8,6 +8,18 @@ using UnityEngine.TestTools;
 using UValidation;
 using UValidation.Editor;
 
+namespace Systems.UValidation.Tests
+{
+    /// <summary>
+    /// Serializable test data whose namespace shares the System prefix.
+    /// </summary>
+    [Serializable]
+    internal sealed class SystemsNamespaceData
+    {
+        [SerializeField, NotEmpty] private string m_Value = string.Empty;
+    }
+}
+
 namespace UValidation.Tests
 {
     public class ValidationTests
@@ -49,6 +61,12 @@ namespace UValidation.Tests
             [SerializeField, NotEmpty] private Vector3[] m_Vectors = Array.Empty<Vector3>();
             [SerializeField, NotEmpty] private AnimationCurve[] m_Curves = Array.Empty<AnimationCurve>();
             [SerializeField, NotEmpty] private SphericalHarmonicsL2[] m_Lighting = Array.Empty<SphericalHarmonicsL2>();
+        }
+
+        private sealed class SystemsNamespaceHost : MonoBehaviour
+        {
+            [SerializeField, IsValid]
+            private global::Systems.UValidation.Tests.SystemsNamespaceData m_Data = new();
         }
 
         private sealed class UnsupportedAttributeTargetsHost : MonoBehaviour
@@ -256,6 +274,26 @@ namespace UValidation.Tests
             try
             {
                 var host = gameObject.AddComponent<EmptyUnityBuiltInCollectionsHost>();
+                using var validation = new Validation(host);
+
+                SerializedFieldsValidator.ValidateAttributes(host, validation);
+
+                Assert.IsTrue(validation.Failed);
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [Test]
+        public void AttributeValidation_SerializableTypeInSystemsNamespace_IsValidated()
+        {
+            var gameObject = new GameObject(nameof(SystemsNamespaceHost));
+            try
+            {
+                var host = gameObject.AddComponent<SystemsNamespaceHost>();
                 using var validation = new Validation(host);
 
                 SerializedFieldsValidator.ValidateAttributes(host, validation);

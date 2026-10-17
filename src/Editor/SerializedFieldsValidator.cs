@@ -355,7 +355,8 @@ namespace UValidation.Editor
                 type.IsGenericTypeDefinition ||
                 typeof(IDictionary).IsAssignableFrom(type) ||
                 typeof(Delegate).IsAssignableFrom(type) ||
-                type.Namespace?.StartsWith("System", StringComparison.Ordinal) == true)
+                type.Namespace == "System" ||
+                type.Namespace?.StartsWith("System.", StringComparison.Ordinal) == true)
             {
                 return false;
             }
