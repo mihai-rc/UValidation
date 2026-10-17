@@ -27,7 +27,7 @@ namespace UValidation.Editor
                 return;
             }
 
-            if (ValidationHelper.IsGameObjectValid(gameObject, false))
+            if (ValidationResultCache.IsObjectValid(gameObject))
             {
                 return;
             }
@@ -39,14 +39,14 @@ namespace UValidation.Editor
         {
             var path = AssetDatabase.GUIDToAssetPath(guid);
             if (string.IsNullOrEmpty(path) ||
-                !path.EndsWith(".asset", System.StringComparison.OrdinalIgnoreCase))
+                !path.EndsWith(".asset", System.StringComparison.OrdinalIgnoreCase) ||
+                ValidationResultCache.IsAssetValid(path))
             {
                 return;
             }
 
             var asset = AssetDatabase.LoadMainAssetAtPath(path);
-            var validationState = ValidationHelper.ValidateAssetAtPathForSave(path, false);
-            if (asset != null && validationState == AssetValidationState.Invalid)
+            if (asset != null)
             {
                 selectionRect.x -= 3;
                 selectionRect.y -= 1;
@@ -78,10 +78,42 @@ namespace UValidation.Editor
 
         private static void OnFinishedDefaultHeaderGUI(UnityEditor.Editor editor)
         {
-            if (editor.target is UnityEngine.Object target && !ValidationHelper.IsScriptValid(target, false))
+            var targets = editor.targets;
+            var invalidCount = CountInvalidHeaderTargets(targets);
+            if (invalidCount == 0)
             {
-                EditorGUILayout.HelpBox("Validation Failed: This object contains invalid data.", MessageType.Error);
+                return;
             }
+
+            var message = targets.Length == 1
+                ? "Validation Failed: This object contains invalid data."
+                : $"Validation Failed: {invalidCount} of {targets.Length} selected objects contain invalid data.";
+            EditorGUILayout.HelpBox(message, MessageType.Error);
+        }
+
+        /// <summary>
+        /// Counts the Inspector header targets that fail validation.
+        /// </summary>
+        /// <param name="targets"> The targets of the editor whose header is drawn. </param>
+        /// <returns> The number of invalid targets. </returns>
+        internal static int CountInvalidHeaderTargets(UnityEngine.Object[] targets)
+        {
+            var invalidCount = 0;
+            foreach (var target in targets)
+            {
+                // A prefab asset draws its importer header as well as its own; validating both would show two boxes.
+                if (target == null || target is AssetImporter)
+                {
+                    continue;
+                }
+
+                if (!ValidationResultCache.IsObjectValid(target))
+                {
+                    invalidCount++;
+                }
+            }
+
+            return invalidCount;
         }
 
         private static void DrawRedLabel(Rect selectionRect, string labelName, bool isAsset)
