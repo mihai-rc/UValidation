@@ -361,10 +361,11 @@ namespace UValidation.Tests
         }
 
         [Test]
-        public void AttributeValidation_UnsupportedSerializedType_IsIgnoredAndWarned()
+        public void AttributeValidation_UnsupportedSerializedType_RepeatedValidationWarnsOnce()
         {
             AssertNonSerializedFieldIsIgnoredAndWarned<UnsupportedSerializedTypeHost>(
-                "m_Values");
+                "m_Values",
+                validationCount: 2);
         }
 
         [Test]
@@ -520,7 +521,8 @@ namespace UValidation.Tests
 
         private static void AssertNonSerializedFieldIsIgnoredAndWarned<THost>(
             string fieldName,
-            Type declaringType = null)
+            Type declaringType = null,
+            int validationCount = 1)
             where THost : MonoBehaviour
         {
             declaringType ??= typeof(THost);
@@ -538,7 +540,10 @@ namespace UValidation.Tests
                 var host = gameObject.AddComponent<THost>();
                 using var validation = new Validation(host);
 
-                SerializedFieldsValidator.ValidateAttributes(host, validation);
+                for (var i = 0; i < validationCount; i++)
+                {
+                    SerializedFieldsValidator.ValidateAttributes(host, validation);
+                }
 
                 Assert.IsTrue(validation.Passed);
                 LogAssert.NoUnexpectedReceived();

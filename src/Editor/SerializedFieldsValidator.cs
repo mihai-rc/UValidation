@@ -42,12 +42,13 @@ namespace UValidation.Editor
         private sealed class ValidationTraversalState
         {
             public readonly HashSet<object> ObjectPath = new(ReferenceComparer.Instance);
-            public readonly HashSet<FieldInfo> ReportedNonSerializedFields = new();
+            public readonly HashSet<FieldInfo> ReportedNonSerializedFields;
             public readonly UnityEngine.Object Context;
 
             public ValidationTraversalState(UnityEngine.Object context)
             {
                 Context = context;
+                ReportedNonSerializedFields = s_ReportedNonSerializedFieldsByTarget.GetOrCreateValue(context);
             }
         }
 
@@ -79,6 +80,9 @@ namespace UValidation.Editor
             typeof(GUIStyle),
             typeof(RectOffset)
         };
+
+        private static readonly ConditionalWeakTable<UnityEngine.Object, HashSet<FieldInfo>>
+            s_ReportedNonSerializedFieldsByTarget = new();
 
         private static readonly Dictionary<Type, List<FieldValidationData>> s_Cache = new();
 
