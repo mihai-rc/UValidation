@@ -127,8 +127,9 @@ namespace UValidation.Editor
 
             return isNew
                 ? $"UValidation found invalid data in newly created asset '{path}'. Fix the reported errors before saving it again."
-                : $"UValidation found invalid data in '{path}' after Unity saved it. Changes such as Apply Overrides " +
-                  "are written before UValidation can block them, so fix the reported errors or undo the change.";
+                : $"UValidation found invalid data in '{path}' after Unity saved it. Saves such as Apply Overrides " +
+                  "or Save As onto an existing file are written before UValidation can block them, so fix the " +
+                  "reported errors or undo the change.";
         }
     }
 }

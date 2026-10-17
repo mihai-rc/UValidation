@@ -144,6 +144,11 @@ namespace UValidation.Editor
         /// <returns> The state of the imported contents, or <see cref="AssetValidationState.ValidateAfterImport"/> if they are not readable yet. </returns>
         internal static AssetValidationState ValidateImportedAssetAtPath(string assetPath, bool reportError)
         {
+            if (assetPath.EndsWith(".unity", StringComparison.OrdinalIgnoreCase))
+            {
+                return ValidateImportedSceneAtPath(assetPath, reportError);
+            }
+
             if (!assetPath.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
             {
                 return ValidateAssetAtPathForSave(assetPath, reportError);
@@ -322,6 +327,19 @@ namespace UValidation.Editor
         }
 
         private static AssetValidationState ValidateSceneAtPathForSave(string scenePath, bool reportError)
+        {
+            var scene = SceneManager.GetSceneByPath(scenePath);
+            if (scene.IsValid() && scene.isLoaded)
+            {
+                return ToState(IsSceneValid(ref scene, reportError));
+            }
+
+            // Saving a scene onto another path reports the target path while that path is not loaded, so the
+            // file there still holds the previous contents. The scene being written is only readable after import.
+            return AssetValidationState.ValidateAfterImport;
+        }
+
+        private static AssetValidationState ValidateImportedSceneAtPath(string scenePath, bool reportError)
         {
             var scene = SceneManager.GetSceneByPath(scenePath);
             if (scene.IsValid() && scene.isLoaded)

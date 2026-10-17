@@ -19,8 +19,9 @@ namespace UValidation.Editor
         /// The contents being saved are not readable yet and must be validated after Unity imports them.
         /// </summary>
         /// <remarks>
-        /// Used for assets that do not exist in the AssetDatabase yet, and for prefabs that Unity writes from
-        /// objects the save callback cannot reach, such as Apply Overrides or PrefabUtility.SaveAsPrefabAsset.
+        /// Used for assets that do not exist in the AssetDatabase yet, for prefabs that Unity writes from
+        /// objects the save callback cannot reach, such as Apply Overrides or PrefabUtility.SaveAsPrefabAsset,
+        /// and for scenes saved onto a path that is not loaded, such as Save As onto an existing scene file.
         /// </remarks>
         ValidateAfterImport
     }

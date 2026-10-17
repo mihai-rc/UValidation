@@ -89,6 +89,10 @@ saves are allowed, and UValidation validates the prefab as soon as Unity imports
 and highlights any failure. Saves from Prefab Mode and edits made directly to a prefab asset are
 blocked when invalid.
 
+Saving a scene onto another scene file that already exists, such as **Save As** over an existing
+scene, works the same way: the save is allowed and the written scene is validated as soon as Unity
+imports it. Saving an open scene to its own path is blocked when it is invalid.
+
 The old `Framework.EnableValidation` Editor preference is no longer used. Existing installations
 therefore start from the new project policies rather than inheriting a machine-wide setting from an
 unrelated project.
