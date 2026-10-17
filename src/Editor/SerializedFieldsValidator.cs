@@ -22,6 +22,7 @@ namespace UValidation.Editor
             public HasNoEmptiesAttribute HasNoEmpties;
             public IsValidAttribute IsValid;
             public IsValidTargetKind IsValidTarget;
+            public bool IsSerialized;
         }
 
         private sealed class ReferenceComparer : IEqualityComparer<object>
@@ -42,13 +43,11 @@ namespace UValidation.Editor
         private sealed class ValidationTraversalState
         {
             public readonly HashSet<object> ObjectPath = new(ReferenceComparer.Instance);
-            public readonly HashSet<FieldInfo> ReportedNonSerializedFields;
             public readonly UnityEngine.Object Context;
 
             public ValidationTraversalState(UnityEngine.Object context)
             {
                 Context = context;
-                ReportedNonSerializedFields = s_ReportedNonSerializedFieldsByTarget.GetOrCreateValue(context);
             }
         }
 
@@ -81,8 +80,9 @@ namespace UValidation.Editor
             typeof(RectOffset)
         };
 
-        private static readonly ConditionalWeakTable<UnityEngine.Object, HashSet<FieldInfo>>
-            s_ReportedNonSerializedFieldsByTarget = new();
+        // The warning is about a field declaration, so each field is reported once per domain reload
+        // rather than once for every object that declares it.
+        private static readonly HashSet<FieldInfo> s_ReportedNonSerializedFields = new();
 
         private static readonly Dictionary<Type, List<FieldValidationData>> s_Cache = new();
 
@@ -100,6 +100,17 @@ namespace UValidation.Editor
             ValidateAttributesInternal(target, validation, traversalState);
         }
 
+        /// <summary>
+        /// Forgets which nonserialized fields have already been reported.
+        /// </summary>
+        /// <remarks>
+        /// Editor tests call this so each test observes the warning regardless of earlier runs in the same domain.
+        /// </remarks>
+        internal static void ResetReportedNonSerializedFields()
+        {
+            s_ReportedNonSerializedFields.Clear();
+        }
+
         private static void ValidateAttributesInternal(
             UnityEngine.Object target,
             Validation validation,
@@ -110,8 +121,9 @@ namespace UValidation.Editor
 
             foreach (var data in fieldsAttributeData)
             {
-                if (!IsSerializedField(data.Field, traversalState))
+                if (!data.IsSerialized)
                 {
+                    ReportNonSerializedField(data.Field, traversalState.Context);
                     continue;
                 }
 
@@ -165,8 +177,9 @@ namespace UValidation.Editor
 
                 foreach (var data in handlers)
                 {
-                    if (!IsSerializedField(data.Field, traversalState))
+                    if (!data.IsSerialized)
                     {
+                        ReportNonSerializedField(data.Field, traversalState.Context);
                         continue;
                     }
 
@@ -276,7 +289,8 @@ namespace UValidation.Editor
                             IsValid = isValid,
                             IsValidTarget = isValid != null
                                 ? IsValidTargetUtility.Classify(field, out _)
-                                : IsValidTargetKind.Unsupported
+                                : IsValidTargetKind.Unsupported,
+                            IsSerialized = IsSerializedField(field)
                         });
                     }
                 }
@@ -286,36 +300,31 @@ namespace UValidation.Editor
             return handlers;
         }
 
-        private static bool IsSerializedField(
-            FieldInfo field,
-            ValidationTraversalState traversalState)
+        private static bool IsSerializedField(FieldInfo field)
         {
             var hasSerializationAttribute =
                 field.IsDefined(typeof(SerializeField), true) ||
                 field.IsDefined(typeof(SerializeReference), true);
-            var isSerialized =
-                !field.IsStatic &&
-                !field.IsLiteral &&
-                !field.IsInitOnly &&
-                !field.IsNotSerialized &&
-                (field.IsPublic || hasSerializationAttribute) &&
-                IsSupportedSerializedType(field);
+            return !field.IsStatic &&
+                   !field.IsLiteral &&
+                   !field.IsInitOnly &&
+                   !field.IsNotSerialized &&
+                   (field.IsPublic || hasSerializationAttribute) &&
+                   IsSupportedSerializedType(field);
+        }
 
-            if (isSerialized)
+        private static void ReportNonSerializedField(FieldInfo field, UnityEngine.Object context)
+        {
+            if (!s_ReportedNonSerializedFields.Add(field))
             {
-                return true;
+                return;
             }
 
-            if (traversalState.ReportedNonSerializedFields.Add(field))
-            {
-                var fieldName = $"{field.DeclaringType?.FullName}.{field.Name}";
-                Debug.LogWarning(
-                    $"[UValidation] Validation attributes on nonserialized field '{fieldName}' are ignored. " +
-                    "Remove the validation attributes or make the field serializable according to Unity's rules.",
-                    traversalState.Context);
-            }
-
-            return false;
+            var fieldName = $"{field.DeclaringType?.FullName}.{field.Name}";
+            Debug.LogWarning(
+                $"[UValidation] Validation attributes on nonserialized field '{fieldName}' are ignored. " +
+                "Remove the validation attributes or make the field serializable according to Unity's rules.",
+                context);
         }
 
         private static bool IsSupportedSerializedType(FieldInfo field)

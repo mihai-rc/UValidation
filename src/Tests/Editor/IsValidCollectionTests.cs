@@ -461,6 +461,7 @@ namespace UValidation.Tests
             try
             {
                 var host = gameObject.AddComponent<ManagedDictionaryHost>();
+                SerializedFieldsValidator.ResetReportedNonSerializedFields();
 
                 LogAssert.Expect(
                     LogType.Warning,

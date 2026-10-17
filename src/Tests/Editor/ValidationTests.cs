@@ -406,6 +406,14 @@ namespace UValidation.Tests
         }
 
         [Test]
+        public void AttributeValidation_NonSerializedField_ManyInstancesWarnOnce()
+        {
+            AssertNonSerializedFieldIsIgnoredAndWarned<PrivateNonSerializedAttributeHost>(
+                "m_RuntimeValue",
+                instanceCount: 3);
+        }
+
+        [Test]
         public void AttributeValidation_NestedNonSerializedField_IsIgnoredAndWarned()
         {
             AssertNonSerializedFieldIsIgnoredAndWarned<NonSerializedNestedHost>(
@@ -559,9 +567,11 @@ namespace UValidation.Tests
         private static void AssertNonSerializedFieldIsIgnoredAndWarned<THost>(
             string fieldName,
             Type declaringType = null,
-            int validationCount = 1)
+            int validationCount = 1,
+            int instanceCount = 1)
             where THost : MonoBehaviour
         {
+            SerializedFieldsValidator.ResetReportedNonSerializedFields();
             declaringType ??= typeof(THost);
             var qualifiedFieldName = $"{declaringType.FullName}.{fieldName}";
             LogAssert.Expect(
@@ -571,23 +581,32 @@ namespace UValidation.Tests
                         $"[UValidation] Validation attributes on nonserialized field " +
                         $"'{qualifiedFieldName}' are ignored.")));
 
-            var gameObject = new GameObject(typeof(THost).Name);
+            var gameObjects = new List<GameObject>();
             try
             {
-                var host = gameObject.AddComponent<THost>();
-                using var validation = new Validation(host);
-
-                for (var i = 0; i < validationCount; i++)
+                for (var instance = 0; instance < instanceCount; instance++)
                 {
-                    SerializedFieldsValidator.ValidateAttributes(host, validation);
+                    var gameObject = new GameObject(typeof(THost).Name);
+                    gameObjects.Add(gameObject);
+                    var host = gameObject.AddComponent<THost>();
+                    using var validation = new Validation(host);
+
+                    for (var i = 0; i < validationCount; i++)
+                    {
+                        SerializedFieldsValidator.ValidateAttributes(host, validation);
+                    }
+
+                    Assert.IsTrue(validation.Passed);
                 }
 
-                Assert.IsTrue(validation.Passed);
                 LogAssert.NoUnexpectedReceived();
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(gameObject);
+                foreach (var gameObject in gameObjects)
+                {
+                    UnityEngine.Object.DestroyImmediate(gameObject);
+                }
             }
         }
     }
