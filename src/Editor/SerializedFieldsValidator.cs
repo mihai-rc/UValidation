@@ -386,7 +386,7 @@ namespace UValidation.Editor
             return false;
         }
 
-        private static bool IsSupportedManagedReferenceType(Type type, bool allowContainer)
+        private static bool IsSupportedManagedReferenceType(Type type, bool isFieldType)
         {
             if (type == null)
             {
@@ -395,14 +395,14 @@ namespace UValidation.Editor
 
             if (type.IsArray)
             {
-                return allowContainer &&
+                return isFieldType &&
                        type.GetArrayRank() == 1 &&
                        IsSupportedManagedReferenceType(type.GetElementType(), false);
             }
 
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
             {
-                return allowContainer &&
+                return isFieldType &&
                        IsSupportedManagedReferenceType(type.GetGenericArguments()[0], false);
             }
 
@@ -414,9 +414,16 @@ namespace UValidation.Editor
                 return false;
             }
 
-            return type == typeof(object) ||
-                   type.IsInterface ||
-                   type.IsDefined(typeof(SerializableAttribute), false);
+            if (type == typeof(object) || type.IsInterface)
+            {
+                return true;
+            }
+
+            // Unity serializes a single managed reference declared as any class except Dictionary<,>,
+            // but requires array and list elements declared as a class to be [Serializable].
+            return isFieldType
+                ? !(type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Dictionary<,>))
+                : type.IsDefined(typeof(SerializableAttribute), false);
         }
 
         private static void ApplyFieldValidation(FieldValidationData data, string fieldName, object value, Validation validation)

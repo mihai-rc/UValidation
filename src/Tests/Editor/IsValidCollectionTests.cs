@@ -128,6 +128,73 @@ namespace UValidation.Tests
             [SerializeField, IsValid] private int m_Integer;
             [SerializeField, IsValid] private GameObject m_UnityObject;
             [SerializeField, IsValid] private List<int> m_IntegerList;
+            [SerializeField, IsValid] private IRule m_PlainInterface;
+            [SerializeReference, IsValid] private IRule m_ManagedInterface;
+            [SerializeReference, IsValid] private List<IRule> m_ManagedInterfaceList;
+            [SerializeReference, IsValid] private RuleBase m_ManagedAbstract;
+            [SerializeReference, IsValid] private object m_ManagedObject;
+        }
+
+        private interface IRule
+        {
+        }
+
+        // Deliberately not [Serializable]: Unity accepts it as a single [SerializeReference] field type.
+        private abstract class RuleBase
+        {
+        }
+
+        [Serializable]
+        private sealed class NamedRule : RuleBase, IRule
+        {
+            [SerializeField, NotEmpty] private string m_Name;
+
+            public NamedRule(string name)
+            {
+                m_Name = name;
+            }
+        }
+
+        private sealed class ManagedReferenceHost : MonoBehaviour
+        {
+            [SerializeReference, IsValid] private IRule m_Interface;
+            [SerializeReference, IsValid] private List<IRule> m_InterfaceList;
+            [SerializeReference, IsValid] private RuleBase m_Abstract;
+            [SerializeReference, IsValid] private object m_Object;
+
+            public void SetAll(string name)
+            {
+                m_Interface = new NamedRule(name);
+                m_InterfaceList = new List<IRule> { new NamedRule(name) };
+                m_Abstract = new NamedRule(name);
+                m_Object = new NamedRule(name);
+            }
+
+            public void Set(string fieldName, NamedRule rule)
+            {
+                switch (fieldName)
+                {
+                    case nameof(m_Interface):
+                        m_Interface = rule;
+                        break;
+                    case nameof(m_InterfaceList):
+                        m_InterfaceList = new List<IRule> { rule };
+                        break;
+                    case nameof(m_Abstract):
+                        m_Abstract = rule;
+                        break;
+                    case nameof(m_Object):
+                        m_Object = rule;
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(fieldName), fieldName, null);
+                }
+            }
+        }
+
+        private sealed class ManagedDictionaryHost : MonoBehaviour
+        {
+            [SerializeReference, IsValid] private Dictionary<string, NamedRule> m_Rules = new();
         }
 
         [Test]
@@ -329,6 +396,11 @@ namespace UValidation.Tests
         [TestCase("m_Integer", nameof(IsValidTargetKind.Unsupported))]
         [TestCase("m_UnityObject", nameof(IsValidTargetKind.Unsupported))]
         [TestCase("m_IntegerList", nameof(IsValidTargetKind.Unsupported))]
+        [TestCase("m_PlainInterface", nameof(IsValidTargetKind.Unsupported))]
+        [TestCase("m_ManagedInterface", nameof(IsValidTargetKind.Object))]
+        [TestCase("m_ManagedInterfaceList", nameof(IsValidTargetKind.Collection))]
+        [TestCase("m_ManagedAbstract", nameof(IsValidTargetKind.Object))]
+        [TestCase("m_ManagedObject", nameof(IsValidTargetKind.Object))]
         public void IsValid_TargetClassification_MatchesSupportedContract(
             string fieldName,
             string expected)
@@ -339,6 +411,68 @@ namespace UValidation.Tests
 
             Assert.IsNotNull(field);
             Assert.AreEqual(expected, IsValidTargetUtility.Classify(field, out _).ToString());
+        }
+
+        [TestCase("m_Interface", @"m_Interface\.m_Name")]
+        [TestCase("m_InterfaceList", @"m_InterfaceList\[0\]\.m_Name")]
+        [TestCase("m_Abstract", @"m_Abstract\.m_Name")]
+        [TestCase("m_Object", @"m_Object\.m_Name")]
+        public void IsValid_ManagedReference_ValidatesRuntimeValue(string fieldName, string variablePattern)
+        {
+            var gameObject = new GameObject(nameof(ManagedReferenceHost));
+            try
+            {
+                var host = gameObject.AddComponent<ManagedReferenceHost>();
+                host.Set(fieldName, new NamedRule(string.Empty));
+
+                using var validation = Validate(host);
+                Assert.IsTrue(validation.Failed);
+                ExpectFailure(validation, variablePattern);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [Test]
+        public void IsValid_ManagedReferencesWithValidValues_PassWithoutWarnings()
+        {
+            var gameObject = new GameObject(nameof(ManagedReferenceHost));
+            try
+            {
+                var host = gameObject.AddComponent<ManagedReferenceHost>();
+                host.SetAll("Valid");
+
+                using var validation = Validate(host);
+                Assert.IsTrue(validation.Passed);
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [Test]
+        public void IsValid_ManagedReferenceDictionary_IsReportedAsNonserialized()
+        {
+            var gameObject = new GameObject(nameof(ManagedDictionaryHost));
+            try
+            {
+                var host = gameObject.AddComponent<ManagedDictionaryHost>();
+
+                LogAssert.Expect(
+                    LogType.Warning,
+                    new Regex(@"nonserialized field '.*ManagedDictionaryHost\.m_Rules' are ignored"));
+                using var validation = Validate(host);
+                Assert.IsTrue(validation.Passed);
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
         }
 
         private static Validation Validate(UnityEngine.Object target)

@@ -13,7 +13,7 @@ namespace UValidation.Editor
     {
         private const string k_AttributeName = nameof(IsValidAttribute);
         private const string k_AllowedTypeDescription =
-            "custom serializable classes or arrays/lists of custom serializable classes";
+            "custom serializable classes, [SerializeReference] references, or arrays/lists of those";
         private const string k_ViolationMessage = "Nested values must satisfy their validation rules.";
 
         /// <inheritdoc/>

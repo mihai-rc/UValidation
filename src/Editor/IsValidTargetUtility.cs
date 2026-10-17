@@ -16,12 +16,12 @@ namespace UValidation.Editor
         Unsupported,
 
         /// <summary>
-        /// The target is one custom serializable object.
+        /// The target is one custom serializable object or managed reference.
         /// </summary>
         Object,
 
         /// <summary>
-        /// The target is an array or list of custom serializable objects.
+        /// The target is an array or list of custom serializable objects or managed references.
         /// </summary>
         Collection
     }
@@ -39,21 +39,27 @@ namespace UValidation.Editor
         /// <returns> The supported traversal kind. </returns>
         internal static IsValidTargetKind Classify(FieldInfo field, out Type nestedType)
         {
-            return Classify(field.FieldType, out nestedType);
+            var isManagedReference = field.IsDefined(typeof(SerializeReference), true);
+            return Classify(field.FieldType, isManagedReference, out nestedType);
         }
 
         /// <summary>
         /// Classifies a field type and returns the type to validate recursively.
         /// </summary>
         /// <param name="fieldType"> The field type to classify. </param>
-        /// <param name="nestedType"> The object or collection element type to validate. </param>
+        /// <param name="isManagedReference"> Whether the field is serialized with [SerializeReference]. </param>
+        /// <param name="nestedType"> The declared object or collection element type to validate. </param>
         /// <returns> The supported traversal kind. </returns>
-        internal static IsValidTargetKind Classify(Type fieldType, out Type nestedType)
+        /// <remarks>
+        /// A [SerializeReference] field may be declared as an interface, an abstract class, or object. Its values
+        /// are validated according to their runtime type.
+        /// </remarks>
+        internal static IsValidTargetKind Classify(Type fieldType, bool isManagedReference, out Type nestedType)
         {
             var elementType = GetSupportedCollectionElementType(fieldType);
             if (elementType != null)
             {
-                if (IsSerializableCustomClass(elementType))
+                if (IsTraversableType(elementType, isManagedReference))
                 {
                     nestedType = elementType;
                     return IsValidTargetKind.Collection;
@@ -63,7 +69,7 @@ namespace UValidation.Editor
                 return IsValidTargetKind.Unsupported;
             }
 
-            if (IsSerializableCustomClass(fieldType))
+            if (IsTraversableType(fieldType, isManagedReference))
             {
                 nestedType = fieldType;
                 return IsValidTargetKind.Object;
@@ -85,6 +91,21 @@ namespace UValidation.Editor
                    type != typeof(string) &&
                    !typeof(UnityEngine.Object).IsAssignableFrom(type) &&
                    type.IsDefined(typeof(SerializableAttribute), false);
+        }
+
+        private static bool IsTraversableType(Type type, bool isManagedReference)
+        {
+            if (IsSerializableCustomClass(type))
+            {
+                return true;
+            }
+
+            // A managed reference can hold any serializable subclass of its declared type, so traversal
+            // checks each value's runtime type instead.
+            return isManagedReference &&
+                   (type.IsInterface || type.IsClass) &&
+                   type != typeof(string) &&
+                   !typeof(UnityEngine.Object).IsAssignableFrom(type);
         }
 
         private static Type GetSupportedCollectionElementType(Type type)

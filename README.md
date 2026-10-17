@@ -18,6 +18,14 @@ public sealed class ItemData
 [SerializeField, IsValid] private List<ItemData> m_Items = new();
 ```
 
+`[IsValid]` also works on `[SerializeReference]` fields declared as an interface, an abstract class,
+or `object`, and on arrays and lists of them. Each value is validated according to its runtime type:
+
+```csharp
+[SerializeReference, IsValid] private IRule m_Rule;
+[SerializeReference, IsValid] private List<IRule> m_Rules = new();
+```
+
 Every annotated field inside each object is validated recursively. Collection failures include the
 element index, such as `m_Items[2].m_Name`. Custom `IValidatable` failures receive the same prefix.
 If an `IValidatable` implementation throws while invoked by UValidation, the exception is captured
