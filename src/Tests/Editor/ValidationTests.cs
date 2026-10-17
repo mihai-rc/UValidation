@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.TestTools;
@@ -67,6 +68,18 @@ namespace UValidation.Tests
         {
             [SerializeField, IsValid]
             private global::Systems.UValidation.Tests.SystemsNamespaceData m_Data = new();
+        }
+
+        [Serializable]
+        private sealed class DrawerNestedData
+        {
+            [SerializeField] private string m_Label = string.Empty;
+            [SerializeField] private string[] m_Values = { string.Empty };
+        }
+
+        private sealed class DrawerNestedCollectionHost : ScriptableObject
+        {
+            [SerializeField] private DrawerNestedData[] m_Items = { new() };
         }
 
         private sealed class UnsupportedAttributeTargetsHost : MonoBehaviour
@@ -304,6 +317,30 @@ namespace UValidation.Tests
             finally
             {
                 UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [Test]
+        public void IsCollectionElement_NestedCollectionFields_AreNotTreatedAsElements()
+        {
+            var target = ScriptableObject.CreateInstance<DrawerNestedCollectionHost>();
+            try
+            {
+                using var serializedObject = new SerializedObject(target);
+                var collection = serializedObject.FindProperty("m_Items");
+                var element = collection.GetArrayElementAtIndex(0);
+                var nestedField = element.FindPropertyRelative("m_Label");
+                var nestedCollection = element.FindPropertyRelative("m_Values");
+                var nestedElement = nestedCollection.GetArrayElementAtIndex(0);
+
+                Assert.IsTrue(FieldDrawerHelper.IsCollectionElement(element));
+                Assert.IsFalse(FieldDrawerHelper.IsCollectionElement(nestedField));
+                Assert.IsFalse(FieldDrawerHelper.IsCollectionElement(nestedCollection));
+                Assert.IsTrue(FieldDrawerHelper.IsCollectionElement(nestedElement));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(target);
             }
         }
 

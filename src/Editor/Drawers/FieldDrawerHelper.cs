@@ -107,7 +107,8 @@ namespace UValidation.Editor
 
         internal static bool IsCollectionElement(SerializedProperty property)
         {
-            return property.propertyPath.Contains(".Array.data[");
+            return property.propertyPath.Contains(".Array.data[") &&
+                   property.propertyPath.EndsWith("]", StringComparison.Ordinal);
         }
 
         internal static bool HasNoNullObjectReferences(SerializedProperty property)
