@@ -226,6 +226,31 @@ namespace UValidation.Tests
         }
 
         [Test]
+        public void IsGameObjectValid_ReportErrors_ReportsEveryInvalidComponent()
+        {
+            var gameObject = new GameObject("MultipleInvalidComponents");
+            try
+            {
+                gameObject.AddComponent<PrefabValidationProbe>().SetValue(string.Empty);
+                gameObject.AddComponent<PrefabValidationProbe>().SetValue(string.Empty);
+
+                var expectedError = new Regex(
+                    @"(?s)\[Validation\] String is null or empty!.*" +
+                    @" - Context: MultipleInvalidComponents\r?\n.*" +
+                    @" - Variable: m_Value");
+                LogAssert.Expect(LogType.Error, expectedError);
+                LogAssert.Expect(LogType.Error, expectedError);
+
+                Assert.IsFalse(ValidationHelper.IsGameObjectValid(gameObject, true));
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [Test]
         public void HappyPath_NoChecksRecorded_DisposeIsSafe()
         {
             using var validation = new Validation();

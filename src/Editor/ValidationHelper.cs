@@ -81,7 +81,7 @@ namespace UValidation.Editor
                 .ToArray();
 
             return scriptableObjects.Length > 0 &&
-                   scriptableObjects.All(asset => IsScriptValid(asset, reportError));
+                   AreScriptableObjectsValid(scriptableObjects, reportError);
         }
 
         /// <summary>
@@ -172,15 +172,22 @@ namespace UValidation.Editor
                 return false;
             }
 
+            var isValid = true;
             foreach (var rootGameObject in scene.GetRootGameObjects())
             {
-                if (!IsGameObjectValidRecursively(rootGameObject, reportError))
+                if (IsGameObjectValidRecursively(rootGameObject, reportError))
+                {
+                    continue;
+                }
+
+                isValid = false;
+                if (!reportError)
                 {
                     return false;
-                };
+                }
             }
 
-            return true;
+            return isValid;
         }
 
         /// <summary>
@@ -196,9 +203,11 @@ namespace UValidation.Editor
                 return false;
             }
 
+            var isValid = true;
             var missingScriptCount = GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(gameObject);
             if (missingScriptCount > 0)
             {
+                isValid = false;
                 if (reportError)
                 {
                     var suffix = missingScriptCount == 1 ? "script" : "scripts";
@@ -208,12 +217,27 @@ namespace UValidation.Editor
                         gameObject);
                 }
 
-                return false;
+                if (!reportError)
+                {
+                    return false;
+                }
             }
 
-            return gameObject
-                .GetComponents<MonoBehaviour>()
-                .All(script => IsScriptValid(script, reportError));
+            foreach (var script in gameObject.GetComponents<MonoBehaviour>())
+            {
+                if (script == null || IsScriptValid(script, reportError))
+                {
+                    continue;
+                }
+
+                isValid = false;
+                if (!reportError)
+                {
+                    return false;
+                }
+            }
+
+            return isValid;
         }
 
         /// <summary>
@@ -239,20 +263,27 @@ namespace UValidation.Editor
 
         private static bool IsGameObjectValidRecursively(GameObject gameObject, bool reportError)
         {
-            if (!IsGameObjectValid(gameObject, reportError))
+            var isValid = IsGameObjectValid(gameObject, reportError);
+            if (!isValid && !reportError)
             {
                 return false;
             }
 
             foreach (Transform child in gameObject.transform)
             {
-                if (!IsGameObjectValidRecursively(child.gameObject, reportError))
+                if (IsGameObjectValidRecursively(child.gameObject, reportError))
+                {
+                    continue;
+                }
+
+                isValid = false;
+                if (!reportError)
                 {
                     return false;
                 }
             }
 
-            return true;
+            return isValid;
         }
 
         private static AssetValidationState ValidatePrefabAtPathForSave(string prefabPath, bool reportError)
@@ -313,7 +344,29 @@ namespace UValidation.Editor
                 return AssetValidationState.Valid;
             }
 
-            return ToState(scriptableObjects.All(asset => IsScriptValid(asset, reportError)));
+            return ToState(AreScriptableObjectsValid(scriptableObjects, reportError));
+        }
+
+        private static bool AreScriptableObjectsValid(
+            ScriptableObject[] scriptableObjects,
+            bool reportError)
+        {
+            var isValid = true;
+            foreach (var asset in scriptableObjects)
+            {
+                if (IsScriptValid(asset, reportError))
+                {
+                    continue;
+                }
+
+                isValid = false;
+                if (!reportError)
+                {
+                    return false;
+                }
+            }
+
+            return isValid;
         }
 
         private static AssetValidationState ToState(bool isValid)

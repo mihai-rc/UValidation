@@ -1,7 +1,9 @@
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.TestTools;
 using UnityEngine.SceneManagement;
 using UValidation.Editor;
 
@@ -13,6 +15,7 @@ namespace UValidation.Tests
         private const string k_TestFolderPath = "Assets/" + k_TestFolderName;
         private const string k_ValidScenePath = k_TestFolderPath + "/Valid.unity";
         private const string k_InvalidScenePath = k_TestFolderPath + "/Invalid.unity";
+        private const string k_MultipleInvalidScenePath = k_TestFolderPath + "/MultipleInvalid.unity";
         private const string k_ValidValue = "Valid";
 
         private bool m_BlockInvalidSaves;
@@ -31,6 +34,7 @@ namespace UValidation.Tests
         {
             CloseSceneIfLoaded(k_ValidScenePath);
             CloseSceneIfLoaded(k_InvalidScenePath);
+            CloseSceneIfLoaded(k_MultipleInvalidScenePath);
 
             AssetDatabase.DeleteAsset(k_TestFolderPath);
             UValidationProjectSettings.Instance.BlockInvalidSaves = m_BlockInvalidSaves;
@@ -50,6 +54,22 @@ namespace UValidation.Tests
             CreateStoredScene(k_InvalidScenePath, string.Empty);
 
             AssertValidationPreservesSceneSetup(k_InvalidScenePath, false);
+        }
+
+        [Test]
+        public void MultipleInvalidRoots_ReportEveryFailure()
+        {
+            CreateStoredSceneWithTwoInvalidRoots(k_MultipleInvalidScenePath);
+
+            LogAssert.Expect(
+                LogType.Error,
+                CreateValidationErrorPattern("Invalid Root A"));
+            LogAssert.Expect(
+                LogType.Error,
+                CreateValidationErrorPattern("Invalid Root B"));
+
+            Assert.IsFalse(ValidationHelper.IsSceneValidAtPath(k_MultipleInvalidScenePath, true));
+            LogAssert.NoUnexpectedReceived();
         }
 
         private static void CreateStoredScene(string path, string value)
@@ -75,6 +95,31 @@ namespace UValidation.Tests
             Assert.AreEqual(activeScene, SceneManager.GetActiveScene());
             Assert.IsFalse(SceneManager.GetSceneByPath(path).IsValid(),
                 "Path validation must close its temporary preview scene.");
+        }
+
+        private static void CreateStoredSceneWithTwoInvalidRoots(string path)
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+            CreateInvalidRoot("Invalid Root A", scene);
+            CreateInvalidRoot("Invalid Root B", scene);
+
+            Assert.IsTrue(EditorSceneManager.SaveScene(scene, path));
+            Assert.IsTrue(EditorSceneManager.CloseScene(scene, true));
+        }
+
+        private static void CreateInvalidRoot(string name, Scene scene)
+        {
+            var root = new GameObject(name);
+            root.AddComponent<PrefabValidationProbe>().SetValue(string.Empty);
+            SceneManager.MoveGameObjectToScene(root, scene);
+        }
+
+        private static Regex CreateValidationErrorPattern(string contextName)
+        {
+            return new Regex(
+                @"(?s)\[Validation\] String is null or empty!.*" +
+                $@" - Context: {Regex.Escape(contextName)}\r?\n.*" +
+                @" - Variable: m_Value");
         }
 
         private static void CloseSceneIfLoaded(string path)

@@ -1,5 +1,6 @@
 using System.Collections;
 using System.IO;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -130,6 +131,22 @@ namespace UValidation.Tests
             LogAssert.NoUnexpectedReceived();
         }
 
+        [Test]
+        public void InvalidParentAndChild_ReportEveryFailure()
+        {
+            var prefabPath = CreatePrefabWithInvalidParentAndChild();
+
+            LogAssert.Expect(
+                LogType.Error,
+                CreateValidationErrorPattern("InvalidHierarchy"));
+            LogAssert.Expect(
+                LogType.Error,
+                CreateValidationErrorPattern("InvalidChild"));
+
+            Assert.IsFalse(ValidationHelper.IsPrefabValidAtPath(prefabPath, true));
+            LogAssert.NoUnexpectedReceived();
+        }
+
         private static string CreatePrefab(string name, string value)
         {
             var path = $"{k_TestFolderPath}/{name}.prefab";
@@ -165,6 +182,36 @@ namespace UValidation.Tests
                 yaml.Replace($"guid: {scriptGuid}", $"guid: {k_MissingScriptGuid}"));
             AssetDatabase.ImportAsset(prefabPath, ImportAssetOptions.ForceUpdate);
             return prefabPath;
+        }
+
+        private static string CreatePrefabWithInvalidParentAndChild()
+        {
+            var path = $"{k_TestFolderPath}/InvalidHierarchy.prefab";
+            var source = new GameObject("InvalidParent");
+
+            try
+            {
+                source.AddComponent<PrefabValidationProbe>().SetValue(string.Empty);
+                var child = new GameObject("InvalidChild");
+                child.transform.SetParent(source.transform);
+                child.AddComponent<PrefabValidationProbe>().SetValue(string.Empty);
+
+                var prefab = PrefabUtility.SaveAsPrefabAsset(source, path);
+                Assert.IsNotNull(prefab, $"Failed to create test prefab at '{path}'.");
+                return path;
+            }
+            finally
+            {
+                Object.DestroyImmediate(source);
+            }
+        }
+
+        private static Regex CreateValidationErrorPattern(string contextName)
+        {
+            return new Regex(
+                @"(?s)\[Validation\] String is null or empty!.*" +
+                $@" - Context: {Regex.Escape(contextName)}\r?\n.*" +
+                @" - Variable: m_Value");
         }
     }
 }

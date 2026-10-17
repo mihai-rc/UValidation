@@ -57,6 +57,22 @@ namespace UValidation.Tests
         }
 
         [Test]
+        public void InvalidMainAssetAndSubAsset_ReportEveryFailure()
+        {
+            var path = CreateAsset("BothInvalid", string.Empty, string.Empty);
+            var expectedError = new Regex(
+                @"(?s)\[Validation\] String is null or empty!.*" +
+                @" - Context: BothInvalid(?: SubAsset)?\r?\n.*" +
+                @" - Variable: m_Value");
+
+            LogAssert.Expect(LogType.Error, expectedError);
+            LogAssert.Expect(LogType.Error, expectedError);
+
+            Assert.IsFalse(ValidationHelper.IsScriptableObjectValidAtPath(path, true));
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
         public void MissingAsset_IsInvalidPubliclyAndPendingForSaveEnforcement()
         {
             var missingPath = k_TestFolderPath + "/Missing.asset";
