@@ -51,6 +51,35 @@ namespace UValidation.Editor
             }
         }
 
+        private static readonly HashSet<Type> s_UnitySerializableValueTypes = new()
+        {
+            typeof(Vector2),
+            typeof(Vector3),
+            typeof(Vector4),
+            typeof(Rect),
+            typeof(RectInt),
+            typeof(Quaternion),
+            typeof(Matrix4x4),
+            typeof(Color),
+            typeof(Color32),
+            typeof(LayerMask),
+            typeof(Bounds),
+            typeof(BoundsInt),
+            typeof(Vector2Int),
+            typeof(Vector3Int),
+            typeof(RenderingLayerMask),
+            typeof(UnityEngine.Rendering.SphericalHarmonicsL2),
+            typeof(PropertyName)
+        };
+
+        private static readonly Type[] s_UnitySerializableReferenceTypes =
+        {
+            typeof(AnimationCurve),
+            typeof(Gradient),
+            typeof(GUIStyle),
+            typeof(RectOffset)
+        };
+
         private static readonly Dictionary<Type, List<FieldValidationData>> s_Cache = new();
 
         /// <summary>
@@ -302,7 +331,8 @@ namespace UValidation.Editor
             if (type.IsPrimitive ||
                 type.IsEnum ||
                 type == typeof(string) ||
-                typeof(UnityEngine.Object).IsAssignableFrom(type))
+                typeof(UnityEngine.Object).IsAssignableFrom(type) ||
+                IsUnitySerializableBuiltInType(type))
             {
                 return true;
             }
@@ -331,6 +361,24 @@ namespace UValidation.Editor
             }
 
             return type.IsDefined(typeof(SerializableAttribute), false);
+        }
+
+        private static bool IsUnitySerializableBuiltInType(Type type)
+        {
+            if (s_UnitySerializableValueTypes.Contains(type))
+            {
+                return true;
+            }
+
+            foreach (var serializableType in s_UnitySerializableReferenceTypes)
+            {
+                if (serializableType.IsAssignableFrom(type))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool IsSupportedManagedReferenceType(Type type, bool allowContainer)

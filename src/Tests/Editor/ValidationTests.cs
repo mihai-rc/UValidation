@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.TestTools;
 using UValidation;
 using UValidation.Editor;
@@ -41,6 +42,13 @@ namespace UValidation.Tests
         private sealed class EmptyValueCollectionHost : MonoBehaviour
         {
             [SerializeField, NotEmpty] private int[] m_Values = Array.Empty<int>();
+        }
+
+        private sealed class EmptyUnityBuiltInCollectionsHost : MonoBehaviour
+        {
+            [SerializeField, NotEmpty] private Vector3[] m_Vectors = Array.Empty<Vector3>();
+            [SerializeField, NotEmpty] private AnimationCurve[] m_Curves = Array.Empty<AnimationCurve>();
+            [SerializeField, NotEmpty] private SphericalHarmonicsL2[] m_Lighting = Array.Empty<SphericalHarmonicsL2>();
         }
 
         private sealed class UnsupportedAttributeTargetsHost : MonoBehaviour
@@ -234,6 +242,26 @@ namespace UValidation.Tests
 
                 SerializedFieldsValidator.ValidateAttributes(host, validation);
                 Assert.IsTrue(validation.Failed);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [Test]
+        public void AttributeValidation_EmptyUnityBuiltInCollections_FailWithoutSerializationWarnings()
+        {
+            var gameObject = new GameObject(nameof(EmptyUnityBuiltInCollectionsHost));
+            try
+            {
+                var host = gameObject.AddComponent<EmptyUnityBuiltInCollectionsHost>();
+                using var validation = new Validation(host);
+
+                SerializedFieldsValidator.ValidateAttributes(host, validation);
+
+                Assert.IsTrue(validation.Failed);
+                LogAssert.NoUnexpectedReceived();
             }
             finally
             {
