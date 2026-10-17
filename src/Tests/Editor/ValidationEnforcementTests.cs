@@ -1,3 +1,6 @@
+using UnityEditor.SceneManagement;
+using UnityEngine;
+using UnityEngine.SceneManagement;
 using NUnit.Framework;
 using UValidation.Editor;
 
@@ -61,6 +64,27 @@ namespace UValidation.Tests
             Assert.IsFalse(ValidationEnforcement.BlockPlayMode);
             Assert.IsFalse(ValidationEnforcement.BlockEditorQuit);
             Assert.IsTrue(ValidationEnforcement.FailBuild);
+        }
+
+        [Test]
+        public void OnProcessScene_NullBuildReport_DoesNotEnforcePlayerBuildPolicy()
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+            try
+            {
+                var gameObject = new GameObject(nameof(OnProcessScene_NullBuildReport_DoesNotEnforcePlayerBuildPolicy));
+                SceneManager.MoveGameObjectToScene(gameObject, scene);
+                gameObject.AddComponent<PrefabValidationProbe>();
+                m_Settings.FailBuild = true;
+
+                var processor = new ValidationBuildProcessor();
+
+                Assert.DoesNotThrow(() => processor.OnProcessScene(scene, null));
+            }
+            finally
+            {
+                EditorSceneManager.CloseScene(scene, true);
+            }
         }
 
         private void SetAllPolicies(bool enabled)

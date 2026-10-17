@@ -1,3 +1,4 @@
+using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine.SceneManagement;
@@ -21,7 +22,7 @@ namespace UValidation.Editor
         /// <param name="report"> The build report. </param>
         public void OnProcessScene(Scene scene, BuildReport report)
         {
-            if (!ValidationEnforcement.FailBuild)
+            if (!ValidationEnforcement.FailBuild || !BuildPipeline.isBuildingPlayer)
             {
                 return;
             }
