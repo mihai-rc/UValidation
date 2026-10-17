@@ -1,4 +1,6 @@
+using System;
 using System.Collections;
+using System.IO;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEditor;
@@ -13,6 +15,9 @@ namespace UValidation.Tests
         private const string k_TestFolderName = "__UValidationScriptableObjectSubAssetTests";
         private const string k_TestFolderPath = "Assets/" + k_TestFolderName;
         private const string k_ValidValue = "Valid";
+        private const string k_MissingScriptGuid = "ffffffffffffffffffffffffffffffff";
+        private const string k_MainAssetFileId = "&11400000";
+        private const string k_YamlDocumentSeparator = "--- !u!";
 
         private bool m_BlockInvalidSaves;
 
@@ -69,6 +74,38 @@ namespace UValidation.Tests
             LogAssert.Expect(LogType.Error, expectedError);
 
             Assert.IsFalse(ValidationHelper.IsScriptableObjectValidAtPath(path, true));
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
+        public void SubAssetWithMissingScript_IsRejectedAndReported()
+        {
+            var path = CreateAssetWithMissingScript("MissingSubAssetScript", false);
+
+            Assert.IsFalse(ValidationHelper.IsScriptableObjectValidAtPath(path, false));
+            Assert.AreEqual(
+                AssetValidationState.Invalid,
+                ValidationHelper.ValidateAssetAtPathForSave(path, false));
+
+            LogAssert.Expect(LogType.Error, $"[Validation] Asset '{path}' contains 1 object whose script is missing.");
+            Assert.IsFalse(ValidationHelper.IsScriptableObjectValidAtPath(path, true));
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
+        public void MainAssetWithMissingScript_IsRejectedAndReported()
+        {
+            var path = CreateAssetWithMissingScript("MissingMainAssetScript", true);
+
+            Assert.IsFalse(ValidationHelper.IsScriptableObjectValidAtPath(path, false));
+            Assert.AreEqual(
+                AssetValidationState.Invalid,
+                ValidationHelper.ValidateAssetAtPathForSave(path, false));
+
+            LogAssert.Expect(LogType.Error, $"[Validation] Asset '{path}' contains 1 object whose script is missing.");
+            Assert.AreEqual(
+                AssetValidationState.Invalid,
+                ValidationHelper.ValidateAssetAtPathForSave(path, true));
             LogAssert.NoUnexpectedReceived();
         }
 
@@ -132,6 +169,33 @@ namespace UValidation.Tests
             AssetDatabase.SaveAssets();
             AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
 
+            return path;
+        }
+
+        private static string CreateAssetWithMissingScript(string name, bool breakMainAsset)
+        {
+            var path = CreateAsset(name, k_ValidValue, k_ValidValue);
+            var mainAsset = AssetDatabase.LoadAssetAtPath<ScriptableObjectValidationProbe>(path);
+            var scriptPath = AssetDatabase.GetAssetPath(MonoScript.FromScriptableObject(mainAsset));
+            var scriptGuid = AssetDatabase.AssetPathToGUID(scriptPath);
+            var absolutePath = Path.Combine(Path.GetDirectoryName(Application.dataPath), path);
+            var documents = File
+                .ReadAllText(absolutePath)
+                .Split(new[] { k_YamlDocumentSeparator }, StringSplitOptions.None);
+
+            // Break only the requested object so the other one still loads with its script.
+            for (var i = 1; i < documents.Length; i++)
+            {
+                var isMainAsset = documents[i].Split('\n')[0].Contains(k_MainAssetFileId);
+                if (isMainAsset == breakMainAsset)
+                {
+                    Assert.That(documents[i], Does.Contain($"guid: {scriptGuid}"));
+                    documents[i] = documents[i].Replace($"guid: {scriptGuid}", $"guid: {k_MissingScriptGuid}");
+                }
+            }
+
+            File.WriteAllText(absolutePath, string.Join(k_YamlDocumentSeparator, documents));
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
             return path;
         }
     }

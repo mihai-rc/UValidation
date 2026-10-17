@@ -46,20 +46,19 @@ namespace UValidation.Editor
         /// <param name="assetPath"> The path to the asset file. </param>
         /// <param name="reportError"> Whether errors should be reported. </param>
         /// <returns> True if every ScriptableObject in the asset file is valid; otherwise, false. </returns>
+        /// <remarks>
+        /// An asset file that contains an object whose script is missing, including a sub-asset, is invalid.
+        /// </remarks>
         public static bool IsScriptableObjectValidAtPath(string assetPath, bool reportError)
         {
-            if (AssetDatabase.LoadMainAssetAtPath(assetPath) == null)
+            var assets = AssetDatabase.LoadAllAssetsAtPath(assetPath);
+            if (assets.Length == 0)
             {
                 return false;
             }
 
-            var scriptableObjects = AssetDatabase
-                .LoadAllAssetsAtPath(assetPath)
-                .OfType<ScriptableObject>()
-                .ToArray();
-
-            return scriptableObjects.Length > 0 &&
-                   AreScriptableObjectsValid(scriptableObjects, reportError);
+            var isValid = AreAssetsValid(assetPath, assets, reportError);
+            return isValid && assets.OfType<ScriptableObject>().Any();
         }
 
         /// <summary>
@@ -342,22 +341,46 @@ namespace UValidation.Editor
             string assetPath,
             bool reportError)
         {
-            if (AssetDatabase.LoadMainAssetAtPath(assetPath) == null)
+            var assets = AssetDatabase.LoadAllAssetsAtPath(assetPath);
+            if (assets.Length == 0)
             {
                 return GetUnreadableAssetState(assetPath);
             }
 
-            var scriptableObjects = AssetDatabase
-                .LoadAllAssetsAtPath(assetPath)
-                .OfType<ScriptableObject>()
-                .ToArray();
+            return ToState(AreAssetsValid(assetPath, assets, reportError));
+        }
 
-            if (scriptableObjects.Length == 0)
+        private static bool AreAssetsValid(string assetPath, UnityEngine.Object[] assets, bool reportError)
+        {
+            var isValid = !HasMissingScripts(assetPath, assets, reportError);
+            if (!isValid && !reportError)
             {
-                return AssetValidationState.Valid;
+                return false;
             }
 
-            return ToState(AreScriptableObjectsValid(scriptableObjects, reportError));
+            var scriptableObjects = assets.OfType<ScriptableObject>().ToArray();
+            return AreScriptableObjectsValid(scriptableObjects, reportError) && isValid;
+        }
+
+        private static bool HasMissingScripts(string assetPath, UnityEngine.Object[] assets, bool reportError)
+        {
+            // Unity returns null for an object whose script cannot be resolved, so filtering the
+            // loaded objects by type would silently skip it.
+            var missingScriptCount = assets.Count(asset => asset == null);
+            if (missingScriptCount == 0)
+            {
+                return false;
+            }
+
+            if (reportError)
+            {
+                var suffix = missingScriptCount == 1 ? "object whose script is" : "objects whose scripts are";
+                Debug.LogError(
+                    $"[Validation] Asset '{assetPath}' contains {missingScriptCount} {suffix} missing.",
+                    AssetDatabase.LoadMainAssetAtPath(assetPath));
+            }
+
+            return true;
         }
 
         private static bool AreScriptableObjectsValid(
