@@ -60,9 +60,7 @@ namespace UValidation.Tests
                 gameObject.AddComponent<PrefabValidationProbe>();
                 m_Settings.FailBuild = true;
 
-                LogAssert.Expect(
-                    LogType.Error,
-                    new Regex(@"(?s)\[Validation\] String is null or empty!.*Variable: m_Value"));
+                LogAssert.Expect(LogType.Error, new Regex(@"(?s)\[Validation\] String is null or empty!.*Variable: m_Value"));
                 Assert.Throws<BuildFailedException>(() => ValidationBuildProcessor.ProcessScene(scene, true));
                 LogAssert.NoUnexpectedReceived();
             }

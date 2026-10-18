@@ -9,18 +9,17 @@ namespace UValidation.Editor
     internal static class UnitySerializedCollectionUtility
     {
         /// <summary>
-        /// Gets whether a type is an array or a concrete <see cref="List{T}"/>.
+        /// Gets whether a type is an array or a concrete. <see cref="List{T}"/>.
         /// </summary>
         /// <param name="type"> The type to inspect. </param>
         /// <returns> Whether the type is a recognized Unity collection container. </returns>
         internal static bool IsCollection(Type type)
         {
-            return type != null &&
-                   (type.IsArray || type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>));
+            return type != null && (type.IsArray || type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>));
         }
 
         /// <summary>
-        /// Gets the element type of a supported one-dimensional array or concrete <see cref="List{T}"/>.
+        /// Gets the element type of a supported one-dimensional array or concrete. <see cref="List{T}"/>.
         /// </summary>
         /// <param name="type"> The collection type to inspect. </param>
         /// <param name="elementType"> The collection element type when supported. </param>

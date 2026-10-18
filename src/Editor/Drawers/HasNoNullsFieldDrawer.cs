@@ -33,7 +33,7 @@ namespace UValidation.Editor
         protected override bool IsUsageValid(SerializedProperty property)
         {
             return FieldDrawerHelper.IsCollection(property) &&
-                   ValidationAttributeTargetUtility.SupportsHasNoNulls(fieldInfo.FieldType);
+                ValidationAttributeTargetUtility.SupportsHasNoNulls(fieldInfo.FieldType);
         }
 
         /// <inheritdoc />

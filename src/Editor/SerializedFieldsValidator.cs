@@ -132,6 +132,7 @@ namespace UValidation.Editor
                 var fieldName = string.IsNullOrEmpty(objectPath)
                     ? data.CleanName
                     : $"{objectPath}.{data.CleanName}";
+
                 ApplyFieldValidation(data, fieldName, value, validation);
 
                 if (data.IsValid != null && value != null)
@@ -149,9 +150,9 @@ namespace UValidation.Editor
         /// <summary>
         /// Recursively validates a plain C# object (non-Unity.Object) whose fields may carry validation attributes.
         /// </summary>
-        /// <param name="nestedObj">The nested object instance to validate.</param>
-        /// <param name="parentFieldName">The field name of the parent (used as prefix in error messages).</param>
-        /// <param name="validation">The validation context to accumulate failures into.</param>
+        /// <param name="nestedObj"> The nested object instance to validate. </param>
+        /// <param name="parentFieldName"> The field name of the parent (used as prefix in error messages). </param>
+        /// <param name="validation"> The validation context to accumulate failures into. </param>
         /// <param name="traversalState"> State shared across the current recursive traversal. </param>
         private static void ValidateNestedObject(
             object nestedObj,
@@ -185,10 +186,7 @@ namespace UValidation.Editor
             }
         }
 
-        private static void RunCustomValidation(
-            IValidatable validatable,
-            string objectPath,
-            Validation validation)
+        private static void RunCustomValidation(IValidatable validatable, string objectPath, Validation validation)
         {
             using var pathScope = validation.PushVariablePath(objectPath);
 
@@ -201,6 +199,7 @@ namespace UValidation.Editor
                 var failurePath = string.IsNullOrEmpty(objectPath)
                     ? validatable.GetType().Name
                     : null;
+
                 validation.RecordCustomValidationException(failurePath, exception);
             }
         }
@@ -246,8 +245,11 @@ namespace UValidation.Editor
             for (var currentType = type; currentType != null; currentType = currentType.BaseType)
             {
                 // Read each declaration once, including private fields skipped by inherited lookup.
-                var fields = currentType.GetFields(BindingFlags.Instance | BindingFlags.Public |
-                                                  BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                var fields = currentType.GetFields(
+                    BindingFlags.Instance |
+                    BindingFlags.Public |
+                    BindingFlags.NonPublic |
+                    BindingFlags.DeclaredOnly);
 
                 foreach (var field in fields)
                 {
@@ -268,9 +270,7 @@ namespace UValidation.Editor
                             HasNoNulls = noNullItems,
                             HasNoEmpties = noEmptyItems,
                             IsValid = isValid,
-                            IsValidTarget = isValid != null
-                                ? IsValidTargetUtility.Classify(field)
-                                : IsValidTargetKind.Unsupported,
+                            IsValidTarget = isValid != null ? IsValidTargetUtility.Classify(field) : IsValidTargetKind.Unsupported,
                             IsSerialized = IsSerializedField(field)
                         });
                     }
@@ -286,6 +286,7 @@ namespace UValidation.Editor
             var hasSerializationAttribute =
                 field.IsDefined(typeof(SerializeField), true) ||
                 field.IsDefined(typeof(SerializeReference), true);
+
             return !field.IsStatic &&
                    !field.IsLiteral &&
                    !field.IsInitOnly &&

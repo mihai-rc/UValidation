@@ -154,10 +154,12 @@ namespace UValidation.Tests
             Assert.IsFalse(
                 ValidationHelper.IsPrefabValidAtPath(path, false),
                 "The deliberately dirty loaded object should remain invalid.");
+
             Assert.AreEqual(
                 AssetValidationState.Valid,
                 ValidationHelper.ValidateImportedAssetAtPath(path, false),
                 "The separately written prefab contents should be valid.");
+
             LogAssert.NoUnexpectedReceived();
         }
 

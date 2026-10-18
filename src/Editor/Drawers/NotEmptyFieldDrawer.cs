@@ -26,7 +26,7 @@ namespace UValidation.Editor
         protected override bool IsUsageValid(SerializedProperty property)
         {
             return (property.propertyType == SerializedPropertyType.String || FieldDrawerHelper.IsCollection(property)) &&
-                   ValidationAttributeTargetUtility.SupportsNotEmpty(fieldInfo.FieldType);
+                ValidationAttributeTargetUtility.SupportsNotEmpty(fieldInfo.FieldType);
         }
 
         /// <inheritdoc />

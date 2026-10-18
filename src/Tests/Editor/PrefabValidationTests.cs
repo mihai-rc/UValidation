@@ -139,6 +139,7 @@ namespace UValidation.Tests
             LogAssert.Expect(
                 LogType.Error,
                 CreateValidationErrorPattern("InvalidHierarchy"));
+
             LogAssert.Expect(
                 LogType.Error,
                 CreateValidationErrorPattern("InvalidChild"));
@@ -181,6 +182,7 @@ namespace UValidation.Tests
                 absolutePrefabPath,
                 yaml.Replace($"guid: {scriptGuid}", $"guid: {k_MissingScriptGuid}"));
             AssetDatabase.ImportAsset(prefabPath, ImportAssetOptions.ForceUpdate);
+
             return prefabPath;
         }
 

@@ -11,8 +11,7 @@ namespace UValidation.Tests
 {
     public class IsValidCollectionTests
     {
-        private const string k_CollectionValidatorExceptionMessage =
-            "Collection element validator failed intentionally.";
+        private const string k_CollectionValidatorExceptionMessage = "Collection element validator failed intentionally.";
 
         [Serializable]
         private sealed class ItemData
@@ -413,9 +412,7 @@ namespace UValidation.Tests
         [TestCase("m_ManagedAbstract", nameof(IsValidTargetKind.Object))]
         [TestCase("m_ManagedAbstractList", nameof(IsValidTargetKind.Collection))]
         [TestCase("m_ManagedObject", nameof(IsValidTargetKind.Object))]
-        public void IsValid_TargetClassification_MatchesSupportedContract(
-            string fieldName,
-            string expected)
+        public void IsValid_TargetClassification_MatchesSupportedContract(string fieldName, string expected)
         {
             var field = typeof(UsageHost).GetField(
                 fieldName,
@@ -476,9 +473,7 @@ namespace UValidation.Tests
                 var host = gameObject.AddComponent<ManagedDictionaryHost>();
                 SerializedFieldsValidator.ResetReportedNonSerializedFields();
 
-                LogAssert.Expect(
-                    LogType.Warning,
-                    new Regex(@"nonserialized field '.*ManagedDictionaryHost\.m_Rules' are ignored"));
+                LogAssert.Expect(LogType.Warning, new Regex(@"nonserialized field '.*ManagedDictionaryHost\.m_Rules' are ignored"));
                 using var validation = Validate(host);
                 Assert.IsTrue(validation.Passed);
                 LogAssert.NoUnexpectedReceived();
@@ -498,9 +493,7 @@ namespace UValidation.Tests
                 var host = gameObject.AddComponent<ManagedDictionaryListHost>();
                 SerializedFieldsValidator.ResetReportedNonSerializedFields();
 
-                LogAssert.Expect(
-                    LogType.Warning,
-                    new Regex(@"nonserialized field '.*ManagedDictionaryListHost\.m_Rules' are ignored"));
+                LogAssert.Expect(LogType.Warning, new Regex(@"nonserialized field '.*ManagedDictionaryListHost\.m_Rules' are ignored"));
                 using var validation = Validate(host);
                 Assert.IsTrue(validation.Passed);
                 LogAssert.NoUnexpectedReceived();
@@ -520,9 +513,7 @@ namespace UValidation.Tests
 
         private static void ExpectFailure(Validation validation, string variablePattern)
         {
-            LogAssert.Expect(
-                LogType.Error,
-                new Regex(@" - Variable: " + variablePattern + @"\r?\n"));
+            LogAssert.Expect(LogType.Error, new Regex(@" - Variable: " + variablePattern + @"\r?\n"));
             validation.Report();
             LogAssert.NoUnexpectedReceived();
         }

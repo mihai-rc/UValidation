@@ -20,7 +20,7 @@ namespace UValidation.Editor
         Object,
 
         /// <summary>
-        /// The target is an array or list of custom serializable objects or managed references.
+        /// The target is an array or list of custom-serializable objects or managed references.
         /// </summary>
         Collection
     }
@@ -42,14 +42,28 @@ namespace UValidation.Editor
         }
 
         /// <summary>
+        /// Determines whether a type is a custom serializable class supported by recursive validation.
+        /// </summary>
+        /// <param name="type"> The type to inspect. </param>
+        /// <returns> Whether the type is supported. </returns>
+        internal static bool IsSerializableCustomClass(Type type)
+        {
+            return type != null &&
+                   type.IsClass &&
+                   type != typeof(string) &&
+                   !typeof(UnityEngine.Object).IsAssignableFrom(type) &&
+                   type.IsDefined(typeof(SerializableAttribute), false);
+        }
+
+        /// <summary>
         /// Classifies a field type for recursive validation.
         /// </summary>
         /// <param name="fieldType"> The field type to classify. </param>
         /// <param name="isManagedReference"> Whether the field is serialized with [SerializeReference]. </param>
         /// <returns> The supported traversal kind. </returns>
         /// <remarks>
-        /// A [SerializeReference] field may be declared as an interface, an abstract class, or object. Its values
-        /// are validated according to their runtime type.
+        /// A [SerializeReference] field may be declared as an interface, an abstract class, or an object.
+        /// Its values are validated according to their runtime type.
         /// </remarks>
         private static IsValidTargetKind Classify(Type fieldType, bool isManagedReference)
         {
@@ -70,20 +84,6 @@ namespace UValidation.Editor
             }
 
             return IsValidTargetKind.Unsupported;
-        }
-
-        /// <summary>
-        /// Determines whether a type is a custom serializable class supported by recursive validation.
-        /// </summary>
-        /// <param name="type"> The type to inspect. </param>
-        /// <returns> Whether the type is supported. </returns>
-        internal static bool IsSerializableCustomClass(Type type)
-        {
-            return type != null &&
-                   type.IsClass &&
-                   type != typeof(string) &&
-                   !typeof(UnityEngine.Object).IsAssignableFrom(type) &&
-                   type.IsDefined(typeof(SerializableAttribute), false);
         }
 
         private static bool IsTraversableType(Type type, bool isManagedReference)

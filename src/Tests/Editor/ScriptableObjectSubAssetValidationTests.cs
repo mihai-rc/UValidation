@@ -41,7 +41,6 @@ namespace UValidation.Tests
         public void ValidMainAsset_InvalidSubAsset_Fails()
         {
             var path = CreateAsset("InvalidSubAsset", k_ValidValue, string.Empty);
-
             Assert.IsFalse(ValidationHelper.IsScriptableObjectValidAtPath(path, false));
         }
 
@@ -49,7 +48,6 @@ namespace UValidation.Tests
         public void InvalidMainAsset_ValidSubAsset_Fails()
         {
             var path = CreateAsset("InvalidMainAsset", string.Empty, k_ValidValue);
-
             Assert.IsFalse(ValidationHelper.IsScriptableObjectValidAtPath(path, false));
         }
 
@@ -57,7 +55,6 @@ namespace UValidation.Tests
         public void ValidMainAsset_ValidSubAsset_Passes()
         {
             var path = CreateAsset("AllValid", k_ValidValue, k_ValidValue);
-
             Assert.IsTrue(ValidationHelper.IsScriptableObjectValidAtPath(path, false));
         }
 
@@ -98,14 +95,10 @@ namespace UValidation.Tests
             var path = CreateAssetWithMissingScript("MissingMainAssetScript", true);
 
             Assert.IsFalse(ValidationHelper.IsScriptableObjectValidAtPath(path, false));
-            Assert.AreEqual(
-                AssetValidationState.Invalid,
-                ValidationHelper.ValidateAssetAtPathForSave(path, false));
+            Assert.AreEqual(AssetValidationState.Invalid, ValidationHelper.ValidateAssetAtPathForSave(path, false));
 
             LogAssert.Expect(LogType.Error, $"[Validation] Asset '{path}' contains 1 object whose script is missing.");
-            Assert.AreEqual(
-                AssetValidationState.Invalid,
-                ValidationHelper.ValidateAssetAtPathForSave(path, true));
+            Assert.AreEqual(AssetValidationState.Invalid, ValidationHelper.ValidateAssetAtPathForSave(path, true));
             LogAssert.NoUnexpectedReceived();
         }
 
@@ -115,9 +108,7 @@ namespace UValidation.Tests
             var missingPath = k_TestFolderPath + "/Missing.asset";
 
             Assert.IsFalse(ValidationHelper.IsScriptableObjectValidAtPath(missingPath, false));
-            Assert.AreEqual(
-                AssetValidationState.ValidateAfterImport,
-                ValidationHelper.ValidateAssetAtPathForSave(missingPath, false));
+            Assert.AreEqual(AssetValidationState.ValidateAfterImport, ValidationHelper.ValidateAssetAtPathForSave(missingPath, false));
         }
 
         [Test]
@@ -127,9 +118,7 @@ namespace UValidation.Tests
             AssetDatabase.CreateAsset(new AnimationClip(), path);
 
             Assert.IsFalse(ValidationHelper.IsScriptableObjectValidAtPath(path, false));
-            Assert.AreEqual(
-                AssetValidationState.Valid,
-                ValidationHelper.ValidateAssetAtPathForSave(path, false));
+            Assert.AreEqual(AssetValidationState.Valid,  ValidationHelper.ValidateAssetAtPathForSave(path, false));
         }
 
         [UnityTest]
@@ -143,6 +132,7 @@ namespace UValidation.Tests
             LogAssert.Expect(
                 LogType.Error,
                 new Regex(@"(?s)\[Validation\] String is null or empty!.*Variable: m_Value"));
+
             LogAssert.Expect(
                 LogType.Error,
                 new Regex("UValidation found invalid data in newly created asset.*NewInvalid\\.asset"));

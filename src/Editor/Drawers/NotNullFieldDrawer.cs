@@ -30,7 +30,7 @@ namespace UValidation.Editor
         protected override bool IsUsageValid(SerializedProperty property)
         {
             return property.propertyType == SerializedPropertyType.ObjectReference &&
-                   ValidationAttributeTargetUtility.SupportsNotNull(fieldInfo.FieldType);
+                ValidationAttributeTargetUtility.SupportsNotNull(fieldInfo.FieldType);
         }
 
         /// <inheritdoc />

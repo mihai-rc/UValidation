@@ -23,6 +23,44 @@ namespace UValidation.Editor
             UnityEditor.Editor.finishedDefaultHeaderGUI += OnFinishedDefaultHeaderGUI;
         }
 
+        /// <summary>
+        /// Counts the Inspector header targets that fail validation.
+        /// </summary>
+        /// <param name="targets"> The targets of the editor whose header is drawn. </param>
+        /// <returns> The number of invalid targets. </returns>
+        internal static int CountInvalidHeaderTargets(UnityEngine.Object[] targets)
+        {
+            var invalidCount = 0;
+            foreach (var target in targets)
+            {
+                // A prefab asset draws its importer header as well as its own; validating both would show two boxes.
+                if (target == null || target is AssetImporter)
+                {
+                    continue;
+                }
+
+                if (!ValidationResultCache.IsObjectValid(target))
+                {
+                    invalidCount++;
+                }
+            }
+
+            return invalidCount;
+        }
+
+        /// <summary>
+        /// Gets whether a Project-window asset participates in validation feedback.
+        /// </summary>
+        /// <param name="path"> Project-relative asset path. </param>
+        /// <returns> True for scenes, prefabs, and ScriptableObject asset files. </returns>
+        internal static bool IsSupportedProjectAssetPath(string path)
+        {
+            return !string.IsNullOrEmpty(path) &&
+                   (path.EndsWith(".unity", System.StringComparison.OrdinalIgnoreCase) ||
+                    path.EndsWith(".prefab", System.StringComparison.OrdinalIgnoreCase) ||
+                    path.EndsWith(".asset", System.StringComparison.OrdinalIgnoreCase));
+        }
+
         private static void OnHierarchyWindowItemOnGUI(int instanceId, Rect selectionRect)
         {
             var gameObject = EditorUtility.EntityIdToObject((EntityId)instanceId) as GameObject;
@@ -93,44 +131,6 @@ namespace UValidation.Editor
                 ? "Validation Failed: This object contains invalid data."
                 : $"Validation Failed: {invalidCount} of {targets.Length} selected objects contain invalid data.";
             EditorGUILayout.HelpBox(message, MessageType.Error);
-        }
-
-        /// <summary>
-        /// Counts the Inspector header targets that fail validation.
-        /// </summary>
-        /// <param name="targets"> The targets of the editor whose header is drawn. </param>
-        /// <returns> The number of invalid targets. </returns>
-        internal static int CountInvalidHeaderTargets(UnityEngine.Object[] targets)
-        {
-            var invalidCount = 0;
-            foreach (var target in targets)
-            {
-                // A prefab asset draws its importer header as well as its own; validating both would show two boxes.
-                if (target == null || target is AssetImporter)
-                {
-                    continue;
-                }
-
-                if (!ValidationResultCache.IsObjectValid(target))
-                {
-                    invalidCount++;
-                }
-            }
-
-            return invalidCount;
-        }
-
-        /// <summary>
-        /// Gets whether a Project-window asset participates in validation feedback.
-        /// </summary>
-        /// <param name="path"> Project-relative asset path. </param>
-        /// <returns> True for scenes, prefabs, and ScriptableObject asset files. </returns>
-        internal static bool IsSupportedProjectAssetPath(string path)
-        {
-            return !string.IsNullOrEmpty(path) &&
-                   (path.EndsWith(".unity", System.StringComparison.OrdinalIgnoreCase) ||
-                   path.EndsWith(".prefab", System.StringComparison.OrdinalIgnoreCase) ||
-                   path.EndsWith(".asset", System.StringComparison.OrdinalIgnoreCase));
         }
 
         private static void DrawRedLabel(Rect selectionRect, string labelName, bool isAsset)

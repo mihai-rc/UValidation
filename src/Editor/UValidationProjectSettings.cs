@@ -72,18 +72,10 @@ namespace UValidation.Editor
     {
         private const string k_SettingsPath = "Project/UValidation";
 
-        private static readonly GUIContent s_BlockInvalidSavesLabel = new(
-            "Block Invalid Saves",
-            "Prevent invalid scenes, prefabs, and ScriptableObjects from being saved.");
-        private static readonly GUIContent s_BlockPlayModeLabel = new(
-            "Block Play Mode",
-            "Prevent entering Play Mode when the active scene is invalid.");
-        private static readonly GUIContent s_BlockEditorQuitLabel = new(
-            "Block Editor Quit",
-            "Prevent quitting while a dirty ScriptableObject asset is invalid.");
-        private static readonly GUIContent s_FailBuildLabel = new(
-            "Fail Player Builds",
-            "Fail a player build when a processed scene contains invalid data.");
+        private static readonly GUIContent s_BlockInvalidSavesLabel = new("Block Invalid Saves", "Prevent invalid scenes, prefabs, and ScriptableObjects from being saved.");
+        private static readonly GUIContent s_BlockPlayModeLabel = new("Block Play Mode", "Prevent entering Play Mode when the active scene is invalid.");
+        private static readonly GUIContent s_BlockEditorQuitLabel = new("Block Editor Quit", "Prevent quitting while a dirty ScriptableObject asset is invalid.");
+        private static readonly GUIContent s_FailBuildLabel = new("Fail Player Builds", "Fail a player build when a processed scene contains invalid data.");
 
         [SettingsProvider]
         private static SettingsProvider CreateProvider()
@@ -115,6 +107,7 @@ namespace UValidation.Editor
             EditorGUILayout.HelpBox(
                 "Inspector messages and editor highlights are always active. These policies only control whether UValidation blocks an operation. New projects start with enforcement disabled.",
                 MessageType.Info);
+
             EditorGUILayout.Space();
             EditorGUILayout.PropertyField(serializedSettings.FindProperty("m_BlockInvalidSaves"), s_BlockInvalidSavesLabel);
             EditorGUILayout.PropertyField(serializedSettings.FindProperty("m_BlockPlayMode"), s_BlockPlayModeLabel);

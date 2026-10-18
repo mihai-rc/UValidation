@@ -11,11 +11,37 @@ namespace UValidation
     /// <summary>
     /// Provides methods to assert validation rules.
     /// </summary>
-    /// <remarks>
-    /// Wrap usage in a <c>using</c> statement and call <see cref="Report"/> before disposal to log any failures.
-    /// </remarks>
     public sealed class Validation : IDisposable
     {
+        /// <summary>
+        /// Restores a validation variable path after nested custom validation completes.
+        /// </summary>
+        internal readonly struct VariablePathScope : IDisposable
+        {
+            private readonly Validation m_Validation;
+            private readonly string m_PreviousPath;
+
+            /// <summary>
+            /// Creates a new path-restoration scope.
+            /// </summary>
+            /// <param name="validation"> The validation whose path should be restored. </param>
+            /// <param name="previousPath"> The path to restore. </param>
+            internal VariablePathScope(Validation validation, string previousPath)
+            {
+                m_Validation = validation;
+                m_PreviousPath = previousPath;
+            }
+
+            /// <inheritdoc />
+            public void Dispose()
+            {
+                if (m_Validation != null)
+                {
+                    m_Validation.m_VariablePath = m_PreviousPath;
+                }
+            }
+        }
+
         private const string k_ConditionFailed = "[Validation] Condition failed!";
         private const string k_PredicateNull = "[Validation] Predicate was null!";
         private const string k_NullReference = "[Validation] Reference is null!";
@@ -64,7 +90,7 @@ namespace UValidation
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="Validation"/> class.
+        /// Creates a new instance of the <see cref="Validation"/> class.
         /// </summary>
         /// <param name="context"> The Unity object in the context which the validation happens. </param>
         public Validation(UnityEngine.Object context = null)
@@ -122,43 +148,6 @@ namespace UValidation
 
             m_ErrorBuilder = null;
             m_VariablePath = null;
-        }
-
-        /// <summary>
-        /// Prefixes failures produced by custom validation with their location in the serialized object graph.
-        /// </summary>
-        /// <param name="variablePath"> The path of the object currently being validated. </param>
-        /// <returns> A scope that restores the previous path when disposed. </returns>
-        internal VariablePathScope PushVariablePath(string variablePath)
-        {
-            ThrowIfDisposed();
-
-            var previousPath = m_VariablePath;
-            m_VariablePath = QualifyVariable(variablePath);
-            return new VariablePathScope(this, previousPath);
-        }
-
-        /// <summary>
-        /// Records an exception thrown by a custom validator as a validation failure.
-        /// </summary>
-        /// <param name="variable"> The object path whose custom validation failed. </param>
-        /// <param name="exception"> The exception thrown by the custom validator. </param>
-        internal void RecordCustomValidationException(string variable, Exception exception)
-        {
-            ThrowIfDisposed();
-
-            if (exception == null)
-            {
-                throw new ArgumentNullException(nameof(exception));
-            }
-
-            Fail(
-                k_CustomValidationException,
-                variable,
-                null,
-                nameof(IValidatable.Validate),
-                0,
-                exception.ToString());
         }
 
         /// <summary>
@@ -349,33 +338,6 @@ namespace UValidation
         }
 
         /// <summary>
-        /// Checks whether a reflected collection is not null or empty.
-        /// </summary>
-        /// <param name="variable"> The name of the collection being validated. </param>
-        /// <param name="values"> The reflected collection being validated. </param>
-        /// <param name="file"> The path to the source field declaration. </param>
-        /// <param name="function"> The name of the function that performs the validation. </param>
-        /// <param name="line"> The line of the source field declaration. </param>
-        /// <returns> The validation instance for continued fluent chaining. </returns>
-        internal Validation IsNotEmpty(
-            string variable,
-            IEnumerable values,
-            string file,
-            string function,
-            int line)
-        {
-            ThrowIfDisposed();
-
-            if (values != null && HasAny(values))
-            {
-                return this;
-            }
-
-            Fail(k_EmptyCollection, variable, file, function, line);
-            return this;
-        }
-
-        /// <summary>
         /// Checks whether a reference collection contains no null items.
         /// </summary>
         /// <typeparam name="T"> The collection element type. </typeparam>
@@ -452,6 +414,42 @@ namespace UValidation
         }
 
         /// <summary>
+        /// Checks whether a string collection contains no null or empty items.
+        /// </summary>
+        /// <param name="variable"> The name of the collection being validated. </param>
+        /// <param name="values"> The collection being validated. </param>
+        /// <param name="file"> The path to the file in which the validation is performed. </param>
+        /// <param name="function"> The name of the function that performs the validation. </param>
+        /// <param name="line"> The line at which the validation was performed. </param>
+        /// <returns> The validation instance for continued fluent chaining. </returns>
+        public Validation HasNoEmpties(
+            string variable,
+            IEnumerable<string> values,
+            [CallerFilePath] string file = "",
+            [CallerMemberName] string function = "",
+            [CallerLineNumber] int line = 0)
+        {
+            ThrowIfDisposed();
+
+            if (values != null)
+            {
+                foreach (var value in values)
+                {
+                    if (string.IsNullOrEmpty(value))
+                    {
+                        Fail(k_CollectionWithEmptyStrings, variable, file, function, line);
+                        return this;
+                    }
+                }
+
+                return this;
+            }
+
+            Fail(k_CollectionWithEmptyStrings, variable, file, function, line);
+            return this;
+        }
+
+        /// <summary>
         /// Checks whether a reflected collection contains no null items.
         /// </summary>
         /// <param name="variable"> The name of the collection being validated. </param>
@@ -488,39 +486,66 @@ namespace UValidation
         }
 
         /// <summary>
-        /// Checks whether a string collection contains no null or empty items.
+        /// Checks whether a reflected collection is not null or empty.
         /// </summary>
         /// <param name="variable"> The name of the collection being validated. </param>
-        /// <param name="values"> The collection being validated. </param>
-        /// <param name="file"> The path to the file in which the validation is performed. </param>
+        /// <param name="values"> The reflected collection being validated. </param>
+        /// <param name="file"> The path to the source field declaration. </param>
         /// <param name="function"> The name of the function that performs the validation. </param>
-        /// <param name="line"> The line at which the validation was performed. </param>
+        /// <param name="line"> The line of the source field declaration. </param>
         /// <returns> The validation instance for continued fluent chaining. </returns>
-        public Validation HasNoEmpties(
+        internal Validation IsNotEmpty(
             string variable,
-            IEnumerable<string> values,
-            [CallerFilePath] string file = "",
-            [CallerMemberName] string function = "",
-            [CallerLineNumber] int line = 0)
+            IEnumerable values,
+            string file,
+            string function,
+            int line)
         {
             ThrowIfDisposed();
 
-            if (values != null)
+            if (values != null && HasAny(values))
             {
-                foreach (var value in values)
-                {
-                    if (string.IsNullOrEmpty(value))
-                    {
-                        Fail(k_CollectionWithEmptyStrings, variable, file, function, line);
-                        return this;
-                    }
-                }
-
                 return this;
             }
 
-            Fail(k_CollectionWithEmptyStrings, variable, file, function, line);
+            Fail(k_EmptyCollection, variable, file, function, line);
             return this;
+        }
+
+        /// <summary>
+        /// Prefixes failures produced by custom validation with their location in the serialized object graph.
+        /// </summary>
+        /// <param name="variablePath"> The path of the object currently being validated. </param>
+        /// <returns> A scope that restores the previous path when disposed. </returns>
+        internal VariablePathScope PushVariablePath(string variablePath)
+        {
+            ThrowIfDisposed();
+
+            var previousPath = m_VariablePath;
+            m_VariablePath = QualifyVariable(variablePath);
+            return new VariablePathScope(this, previousPath);
+        }
+
+        /// <summary>
+        /// Records an exception thrown by a custom validator as a validation failure.
+        /// </summary>
+        /// <param name="variable"> The object path whose custom validation failed. </param>
+        /// <param name="exception"> The exception thrown by the custom validator. </param>
+        internal void RecordCustomValidationException(string variable, Exception exception)
+        {
+            ThrowIfDisposed();
+
+            if (exception == null)
+            {
+                throw new ArgumentNullException(nameof(exception));
+            }
+
+            Fail(k_CustomValidationException,
+                variable,
+                null,
+                nameof(IValidatable.Validate),
+                0,
+                exception.ToString());
         }
 
         private static bool HasAny<T>(IEnumerable<T> values)
@@ -622,35 +647,6 @@ namespace UValidation
             if (m_Disposed)
             {
                 throw new ObjectDisposedException(nameof(Validation));
-            }
-        }
-
-        /// <summary>
-        /// Restores a validation variable path after nested custom validation completes.
-        /// </summary>
-        internal readonly struct VariablePathScope : IDisposable
-        {
-            private readonly Validation m_Validation;
-            private readonly string m_PreviousPath;
-
-            /// <summary>
-            /// Initializes a new path-restoration scope.
-            /// </summary>
-            /// <param name="validation"> The validation whose path should be restored. </param>
-            /// <param name="previousPath"> The path to restore. </param>
-            internal VariablePathScope(Validation validation, string previousPath)
-            {
-                m_Validation = validation;
-                m_PreviousPath = previousPath;
-            }
-
-            /// <inheritdoc />
-            public void Dispose()
-            {
-                if (m_Validation != null)
-                {
-                    m_Validation.m_VariablePath = m_PreviousPath;
-                }
             }
         }
     }

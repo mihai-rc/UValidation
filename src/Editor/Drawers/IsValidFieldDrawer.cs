@@ -10,8 +10,7 @@ namespace UValidation.Editor
     public class IsValidFieldDrawer : ValidationFieldDrawer
     {
         private const string k_AttributeName = nameof(IsValidAttribute);
-        private const string k_AllowedTypeDescription =
-            "custom serializable classes, [SerializeReference] references, or arrays/lists of those";
+        private const string k_AllowedTypeDescription = "custom serializable classes, [SerializeReference] references, or arrays/lists of those";
         private const string k_ViolationMessage = "Nested values must satisfy their validation rules.";
 
         /// <inheritdoc />

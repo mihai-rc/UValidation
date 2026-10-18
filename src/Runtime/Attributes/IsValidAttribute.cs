@@ -4,7 +4,7 @@ using UnityEngine;
 namespace UValidation
 {
     /// <summary>
-    /// Recursively validates a custom serializable class or each element of an array or list of that type.
+    /// Recursively validates a custom serializable class/struct or each element of an array or list of that type.
     /// </summary>
     /// <remarks>
     /// On a [SerializeReference] field declared as an interface, an abstract class, or object, each value is

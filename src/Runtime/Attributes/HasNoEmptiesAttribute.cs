@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 namespace UValidation
 {
     /// <summary>
-    /// Specifies that a serialized string array or list must not contain null or empty items.
+    /// Specifies that a serialized string, array, or list must not contain null or empty items.
     /// </summary>
     [AttributeUsage(AttributeTargets.Field)]
     public class HasNoEmptiesAttribute : ValidationPropertyAttribute

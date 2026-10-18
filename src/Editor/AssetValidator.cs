@@ -39,10 +39,12 @@ namespace UValidation.Editor
                 {
                     case AssetValidationState.Valid:
                         break;
+
                     case AssetValidationState.Invalid:
                         PromptValidationFailed(path);
                         validPaths.Remove(path);
                         break;
+
                     case AssetValidationState.ValidateAfterImport:
                         PendingAssetValidation.Queue(path);
                         break;

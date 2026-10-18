@@ -52,7 +52,6 @@ namespace UValidation.Tests
         public void ExistingValidUnloadedScene_PassesWithoutChangingOpenScenes()
         {
             CreateStoredScene(k_ValidScenePath, k_ValidValue);
-
             AssertValidationPreservesSceneSetup(k_ValidScenePath, true);
         }
 
@@ -60,7 +59,6 @@ namespace UValidation.Tests
         public void ExistingInvalidUnloadedScene_FailsWithoutChangingOpenScenes()
         {
             CreateStoredScene(k_InvalidScenePath, string.Empty);
-
             AssertValidationPreservesSceneSetup(k_InvalidScenePath, false);
         }
 
@@ -72,6 +70,7 @@ namespace UValidation.Tests
             LogAssert.Expect(
                 LogType.Error,
                 CreateValidationErrorPattern("Invalid Root A"));
+
             LogAssert.Expect(
                 LogType.Error,
                 CreateValidationErrorPattern("Invalid Root B"));
@@ -95,14 +94,12 @@ namespace UValidation.Tests
         {
             var sceneCount = SceneManager.sceneCount;
             var activeScene = SceneManager.GetActiveScene();
+
             Assert.IsFalse(SceneManager.GetSceneByPath(path).IsValid(), "The test scene must be unloaded.");
-
             Assert.AreEqual(expectedResult, ValidationHelper.IsSceneValidAtPath(path, false));
-
             Assert.AreEqual(sceneCount, SceneManager.sceneCount);
             Assert.AreEqual(activeScene, SceneManager.GetActiveScene());
-            Assert.IsFalse(SceneManager.GetSceneByPath(path).IsValid(),
-                "Path validation must close its temporary preview scene.");
+            Assert.IsFalse(SceneManager.GetSceneByPath(path).IsValid(), "Path validation must close its temporary preview scene.");
         }
 
         private static void CreateStoredSceneWithTwoInvalidRoots(string path)

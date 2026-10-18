@@ -153,8 +153,7 @@ namespace UValidation.Tests
 
             using var validation = new Validation();
             validation.IsNotNull("destroyedGO", boxed);
-            Assert.IsTrue(validation.Failed,
-                "Destroyed Unity object should be detected even when upcast to object.");
+            Assert.IsTrue(validation.Failed, "Destroyed Unity object should be detected even when upcast to object.");
         }
 
         [Test]
@@ -179,8 +178,7 @@ namespace UValidation.Tests
             try
             {
                 validation.HasNoNulls("list", (IEnumerable<UnityEngine.Object>)list);
-                Assert.IsTrue(validation.Failed,
-                    "Destroyed element should be detected via the UnityEngine.Object overload.");
+                Assert.IsTrue(validation.Failed, "Destroyed element should be detected via the UnityEngine.Object overload.");
             }
             finally
             {
@@ -248,8 +246,7 @@ namespace UValidation.Tests
 
             using var validation = new Validation();
             validation.HasNoNulls(nameof(values), values);
-            Assert.IsTrue(validation.Failed,
-                "Destroyed Unity objects should be detected through an object collection.");
+            Assert.IsTrue(validation.Failed, "Destroyed Unity objects should be detected through an object collection.");
         }
 
         [Test]
@@ -370,8 +367,7 @@ namespace UValidation.Tests
         [Test]
         public void AttributeValidation_PrivateNonSerializedField_IsIgnoredAndWarned()
         {
-            AssertNonSerializedFieldIsIgnoredAndWarned<PrivateNonSerializedAttributeHost>(
-                "m_RuntimeValue");
+            AssertNonSerializedFieldIsIgnoredAndWarned<PrivateNonSerializedAttributeHost>("m_RuntimeValue");
         }
 
         [Test]
@@ -438,6 +434,7 @@ namespace UValidation.Tests
                     @"(?s)\[Validation\] String is null or empty!.*" +
                     @" - Context: MultipleInvalidComponents\r?\n.*" +
                     @" - Variable: m_Value");
+
                 LogAssert.Expect(LogType.Error, expectedError);
                 LogAssert.Expect(LogType.Error, expectedError);
 
@@ -469,9 +466,7 @@ namespace UValidation.Tests
             var alias = validation;
 
             alias.IsNotNull("nullValue", (object)null);
-
-            Assert.IsTrue(validation.Failed,
-                "Every alias should observe failures recorded through the same validation instance.");
+            Assert.IsTrue(validation.Failed, "Every alias should observe failures recorded through the same validation instance.");
         }
 
         [Test]
@@ -496,11 +491,13 @@ namespace UValidation.Tests
 
                 Assert.DoesNotThrow(() => SerializedFieldsValidator.ValidateAttributes(host, validation));
                 Assert.IsTrue(validation.Failed);
+
                 LogAssert.Expect(
                     LogType.Error,
                     new Regex(
                         @"(?s) - Variable: ThrowingValidationHost\r?\n.*" +
                         Regex.Escape(k_RootValidatorExceptionMessage)));
+
                 validation.Report();
                 LogAssert.NoUnexpectedReceived();
             }
@@ -521,11 +518,13 @@ namespace UValidation.Tests
 
                 Assert.DoesNotThrow(() => SerializedFieldsValidator.ValidateAttributes(host, validation));
                 Assert.IsTrue(validation.Failed);
+
                 LogAssert.Expect(
                     LogType.Error,
                     new Regex(
                         @"(?s) - Variable: m_Data\r?\n.*" +
                         Regex.Escape(k_NestedValidatorExceptionMessage)));
+
                 validation.Report();
                 LogAssert.NoUnexpectedReceived();
             }
@@ -578,6 +577,7 @@ namespace UValidation.Tests
             SerializedFieldsValidator.ResetReportedNonSerializedFields();
             declaringType ??= typeof(THost);
             var qualifiedFieldName = $"{declaringType.FullName}.{fieldName}";
+
             LogAssert.Expect(
                 LogType.Warning,
                 new Regex(

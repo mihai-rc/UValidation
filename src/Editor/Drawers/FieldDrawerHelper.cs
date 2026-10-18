@@ -30,6 +30,7 @@ namespace UValidation.Editor
             var propertyField = new PropertyField(property);
             var targets = property.serializedObject.targetObjects;
             var propertyPath = property.propertyPath;
+
             container.style.flexGrow = 1.0f;
             container.style.alignSelf = Align.Stretch;
             container.style.width = Length.Percent(100.0f);
@@ -40,18 +41,41 @@ namespace UValidation.Editor
             container.Add(helpBox);
             container.Add(propertyField);
 
-            RefreshMessage(helpBox, property, attributeName, allowedTypeDescription, violationMessage,
-                usageValidationFn, propertyValidationFn);
+            RefreshMessage(helpBox,
+                property,
+                attributeName,
+                allowedTypeDescription,
+                violationMessage,
+                usageValidationFn,
+                propertyValidationFn);
+
             RefreshElementIcons(propertyField, property, violationMessage, elementValidationFn);
+
             container.TrackPropertyValue(property, changedProperty =>
             {
-                RefreshMessage(helpBox, changedProperty, attributeName, allowedTypeDescription, violationMessage,
-                    usageValidationFn, propertyValidationFn);
+                RefreshMessage(helpBox,
+                    changedProperty,
+                    attributeName,
+                    allowedTypeDescription,
+                    violationMessage,
+                    usageValidationFn,
+                    propertyValidationFn);
+
                 propertyField.schedule.Execute(() => RefreshElementIcons(
-                    propertyField, targets, propertyPath, violationMessage, elementValidationFn));
+                    propertyField,
+                    targets,
+                    propertyPath,
+                    violationMessage,
+                    elementValidationFn));
             });
+
             propertyField.RegisterCallback<GeometryChangedEvent>(_ => RefreshElementIcons(
-                propertyField, targets, propertyPath, violationMessage, elementValidationFn));
+                propertyField,
+                targets,
+                propertyPath,
+                violationMessage,
+                elementValidationFn));
+
             return container;
         }
 
@@ -67,8 +91,13 @@ namespace UValidation.Editor
             Func<SerializedProperty, bool> elementValidationFn = null)
         {
             EditorGUI.BeginProperty(position, label, property);
-            var message = GetMessage(property, attributeName, allowedTypeDescription, violationMessage,
-                usageValidationFn, propertyValidationFn, out var messageType);
+            var message = GetMessage(property,
+                attributeName,
+                allowedTypeDescription,
+                violationMessage,
+                usageValidationFn,
+                propertyValidationFn,
+                out var messageType);
 
             if (message != null)
             {
@@ -93,8 +122,14 @@ namespace UValidation.Editor
             Func<SerializedProperty, bool> propertyValidationFn)
         {
             var propertyHeight = EditorGUI.GetPropertyHeight(property, label, true);
-            var message = GetMessage(property, attributeName, allowedTypeDescription, violationMessage,
-                usageValidationFn, propertyValidationFn, out _);
+            var message = GetMessage(property,
+                attributeName,
+                allowedTypeDescription,
+                violationMessage,
+                usageValidationFn,
+                propertyValidationFn,
+                out _);
+
             return message == null
                 ? propertyHeight
                 : propertyHeight + GetMessageHeight(EditorGUIUtility.currentViewWidth, message) + k_MessageSpacing;
@@ -145,9 +180,7 @@ namespace UValidation.Editor
         /// <param name="property"> The multi-object property being drawn. </param>
         /// <param name="validationFn"> Validation to run on each target's property. </param>
         /// <returns> True when every selected target passes the validation. </returns>
-        internal static bool EveryTargetPasses(
-            SerializedProperty property,
-            Func<SerializedProperty, bool> validationFn)
+        internal static bool EveryTargetPasses(SerializedProperty property, Func<SerializedProperty, bool> validationFn)
         {
             if (validationFn == null)
             {
@@ -188,8 +221,14 @@ namespace UValidation.Editor
             Func<SerializedProperty, bool> usageValidationFn,
             Func<SerializedProperty, bool> propertyValidationFn)
         {
-            var message = GetMessage(property, attributeName, allowedTypeDescription, violationMessage,
-                usageValidationFn, propertyValidationFn, out var messageType);
+            var message = GetMessage(property,
+                attributeName,
+                allowedTypeDescription,
+                violationMessage,
+                usageValidationFn,
+                propertyValidationFn,
+                out var messageType);
+
             helpBox.style.display = message == null ? DisplayStyle.None : DisplayStyle.Flex;
             helpBox.text = message ?? string.Empty;
             helpBox.messageType = messageType == MessageType.Warning
@@ -232,11 +271,14 @@ namespace UValidation.Editor
             for (var i = 0; i < collection.arraySize; i++)
             {
                 var element = collection.GetArrayElementAtIndex(i);
-                var elementField = collectionField.Query<PropertyField>()
+
+                var elementField = collectionField
+                    .Query<PropertyField>()
                     .Where(field => !string.IsNullOrEmpty(field.bindingPath) &&
                         (field.bindingPath == element.propertyPath ||
                          element.propertyPath.EndsWith(field.bindingPath, StringComparison.Ordinal)))
                     .First();
+
                 if (elementField == null)
                 {
                     continue;
@@ -261,6 +303,7 @@ namespace UValidation.Editor
                     image = EditorGUIUtility.IconContent(k_ErrorIcon).image,
                     tooltip = violationMessage
                 };
+
                 icon.style.width = 16.0f;
                 icon.style.height = 16.0f;
                 icon.style.marginRight = 4.0f;
@@ -270,11 +313,13 @@ namespace UValidation.Editor
                 elementField.style.flexGrow = 1.0f;
                 elementField.style.alignSelf = Align.Stretch;
                 elementField.style.width = Length.Percent(100.0f);
+
                 foreach (var child in elementField.Children())
                 {
                     child.style.flexGrow = 1.0f;
                     child.style.minWidth = 0.0f;
                 }
+
                 elementField.Insert(0, icon);
             }
         }
@@ -322,8 +367,11 @@ namespace UValidation.Editor
             if (!(usageValidationFn?.Invoke(property) ?? true))
             {
                 messageType = MessageType.Warning;
-                return string.Format(k_WarningMessage, attributeName, allowedTypeDescription,
-                    property.displayName, property.propertyType);
+                return string.Format(k_WarningMessage,
+                    attributeName,
+                    allowedTypeDescription,
+                    property.displayName,
+                    property.propertyType);
             }
 
             messageType = MessageType.Error;
@@ -337,8 +385,8 @@ namespace UValidation.Editor
         {
             return EveryTargetPasses(
                 collection,
-                targetCollection => index < targetCollection.arraySize &&
-                                    elementValidationFn(targetCollection.GetArrayElementAtIndex(index)));
+                targetCollection => index < targetCollection.arraySize
+                    && elementValidationFn(targetCollection.GetArrayElementAtIndex(index)));
         }
 
         private static float GetMessageHeight(float width, string message)

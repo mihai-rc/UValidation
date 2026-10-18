@@ -43,8 +43,7 @@ namespace UValidation.Editor
             }
 
             var sceneName = string.IsNullOrEmpty(scene.path) ? scene.name : scene.path;
-            throw new BuildFailedException(
-                $"UValidation stopped the player build because scene '{sceneName}' contains invalid data.");
+            throw new BuildFailedException($"UValidation stopped the player build because scene '{sceneName}' contains invalid data.");
         }
     }
 }

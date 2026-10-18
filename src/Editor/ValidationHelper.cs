@@ -111,53 +111,6 @@ namespace UValidation.Editor
         }
 
         /// <summary>
-        /// Determines whether a save candidate is valid or must be validated after Unity imports it.
-        /// </summary>
-        /// <param name="assetPath"> The asset path reported by Unity. </param>
-        /// <param name="reportError"> Whether validation errors should be reported. </param>
-        /// <returns> The validation state used by Editor save enforcement. </returns>
-        internal static AssetValidationState ValidateAssetAtPathForSave(string assetPath, bool reportError)
-        {
-            if (assetPath.EndsWith(".unity", StringComparison.OrdinalIgnoreCase))
-            {
-                return ValidateSceneAtPathForSave(assetPath, reportError);
-            }
-
-            if (assetPath.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
-            {
-                return ValidatePrefabAtPathForSave(assetPath, reportError);
-            }
-
-            if (assetPath.EndsWith(".asset", StringComparison.OrdinalIgnoreCase))
-            {
-                return ValidateScriptableObjectAtPathForSave(assetPath, reportError);
-            }
-
-            return AssetValidationState.Valid;
-        }
-
-        /// <summary>
-        /// Validates the contents Unity imported after saving an asset.
-        /// </summary>
-        /// <param name="assetPath"> The imported asset path. </param>
-        /// <param name="reportError"> Whether validation errors should be reported. </param>
-        /// <returns> The state of the imported contents, or <see cref="AssetValidationState.ValidateAfterImport"/> if they are not readable yet. </returns>
-        internal static AssetValidationState ValidateImportedAssetAtPath(string assetPath, bool reportError)
-        {
-            if (assetPath.EndsWith(".unity", StringComparison.OrdinalIgnoreCase))
-            {
-                return ValidateImportedSceneAtPath(assetPath, reportError);
-            }
-
-            if (!assetPath.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
-            {
-                return ValidateAssetAtPathForSave(assetPath, reportError);
-            }
-
-            return ValidateImportedPrefabAtPath(assetPath, reportError);
-        }
-
-        /// <summary>
         /// Validates the specified scene.
         /// </summary>
         /// <param name="scene"> The scene to validate. </param>
@@ -259,6 +212,53 @@ namespace UValidation.Editor
             return passed;
         }
 
+                /// <summary>
+        /// Determines whether a save candidate is valid or must be validated after Unity imports it.
+        /// </summary>
+        /// <param name="assetPath"> The asset path reported by Unity. </param>
+        /// <param name="reportError"> Whether validation errors should be reported. </param>
+        /// <returns> The validation state used by Editor save enforcement. </returns>
+        internal static AssetValidationState ValidateAssetAtPathForSave(string assetPath, bool reportError)
+        {
+            if (assetPath.EndsWith(".unity", StringComparison.OrdinalIgnoreCase))
+            {
+                return ValidateSceneAtPathForSave(assetPath, reportError);
+            }
+
+            if (assetPath.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
+            {
+                return ValidatePrefabAtPathForSave(assetPath, reportError);
+            }
+
+            if (assetPath.EndsWith(".asset", StringComparison.OrdinalIgnoreCase))
+            {
+                return ValidateScriptableObjectAtPathForSave(assetPath, reportError);
+            }
+
+            return AssetValidationState.Valid;
+        }
+
+        /// <summary>
+        /// Validates the contents Unity imported after saving an asset.
+        /// </summary>
+        /// <param name="assetPath"> The imported asset path. </param>
+        /// <param name="reportError"> Whether validation errors should be reported. </param>
+        /// <returns> The state of the imported contents, or <see cref="AssetValidationState.ValidateAfterImport"/> if they are not readable yet. </returns>
+        internal static AssetValidationState ValidateImportedAssetAtPath(string assetPath, bool reportError)
+        {
+            if (assetPath.EndsWith(".unity", StringComparison.OrdinalIgnoreCase))
+            {
+                return ValidateImportedSceneAtPath(assetPath, reportError);
+            }
+
+            if (!assetPath.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
+            {
+                return ValidateAssetAtPathForSave(assetPath, reportError);
+            }
+
+            return ValidateImportedPrefabAtPath(assetPath, reportError);
+        }
+
         private static bool IsGameObjectValidRecursively(GameObject gameObject, bool reportError)
         {
             var isValid = IsGameObjectValid(gameObject, reportError);
@@ -355,9 +355,7 @@ namespace UValidation.Editor
             }
         }
 
-        private static AssetValidationState ValidateScriptableObjectAtPathForSave(
-            string assetPath,
-            bool reportError)
+        private static AssetValidationState ValidateScriptableObjectAtPathForSave(string assetPath, bool reportError)
         {
             var assets = AssetDatabase.LoadAllAssetsAtPath(assetPath);
             if (assets.Length == 0)
@@ -401,9 +399,7 @@ namespace UValidation.Editor
             return true;
         }
 
-        private static bool AreScriptableObjectsValid(
-            ScriptableObject[] scriptableObjects,
-            bool reportError)
+        private static bool AreScriptableObjectsValid(ScriptableObject[] scriptableObjects, bool reportError)
         {
             var isValid = true;
             foreach (var asset in scriptableObjects)
@@ -436,16 +432,11 @@ namespace UValidation.Editor
                 : AssetValidationState.ValidateAfterImport;
         }
 
-        private static void ReportUnreadableAsset(
-            string assetType,
-            string assetPath,
-            Exception exception,
-            bool reportError)
+        private static void ReportUnreadableAsset(string assetType, string assetPath, Exception exception, bool reportError)
         {
             if (reportError)
             {
-                Debug.LogError(
-                    $"UValidation could not validate {assetType} '{assetPath}': {exception.Message}");
+                Debug.LogError($"UValidation could not validate {assetType} '{assetPath}': {exception.Message}");
             }
         }
     }
