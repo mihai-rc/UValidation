@@ -13,6 +13,7 @@ namespace UValidation.Editor
     {
         private const string k_ElementErrorIconName = "validation-element-error-icon";
         private const string k_ErrorIcon = "d_console.erroricon.sml";
+        private const float k_MinimumMessageHeight = 40.0f;
         private const float k_MessageSpacing = 2.0f;
         private const string k_WarningMessage = "[{0}] is only valid on {1} fields. Field '{2}' has type '{3}'.";
 
@@ -26,7 +27,14 @@ namespace UValidation.Editor
             Func<SerializedProperty, bool> elementValidationFn = null)
         {
             var container = new VisualElement();
-            var helpBox = new HelpBox { style = { marginBottom = k_MessageSpacing } };
+            var helpBox = new HelpBox
+            {
+                style =
+                {
+                    minHeight = k_MinimumMessageHeight,
+                    marginBottom = k_MessageSpacing
+                }
+            };
             var propertyField = new PropertyField(property);
             var targets = property.serializedObject.targetObjects;
             var propertyPath = property.propertyPath;
@@ -391,7 +399,9 @@ namespace UValidation.Editor
 
         private static float GetMessageHeight(float width, string message)
         {
-            return EditorStyles.helpBox.CalcHeight(new GUIContent(message), width);
+            return Mathf.Max(
+                k_MinimumMessageHeight,
+                EditorStyles.helpBox.CalcHeight(new GUIContent(message), width));
         }
     }
 }
