@@ -197,6 +197,8 @@ namespace UValidation.Tests
             }
         }
 
+        // These fixtures deliberately exercise unsupported [SerializeReference] dictionary declarations.
+#pragma warning disable UAC1014
         private sealed class ManagedDictionaryHost : MonoBehaviour
         {
             [SerializeReference, IsValid] private Dictionary<string, NamedRule> m_Rules = new();
@@ -206,6 +208,7 @@ namespace UValidation.Tests
         {
             [SerializeReference, IsValid] private List<Dictionary<string, NamedRule>> m_Rules = new();
         }
+#pragma warning restore UAC1014
 
         [Test]
         public void IsValid_ListWithValidElements_Passes()

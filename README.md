@@ -67,7 +67,9 @@ validation.IsTrue(nameof(m_Config), m_Config, config => config.CalculateValue() 
 ## Editor enforcement policies
 
 Validation feedback is always active in property drawers, Inspector headers, and the Hierarchy and
-Project windows. Enforcement is configured separately under **Project Settings > UValidation**:
+Project windows. The legacy Hierarchy is supported in Unity 6.3 and newer; the new UI Toolkit
+Hierarchy is supported through its official extension API in Unity 6.6 and newer. Enforcement is
+configured separately under **Project Settings > UValidation**:
 
 - block invalid saves when Unity exposes the contents being written, and report ambiguous writes immediately after import;
 - block Play Mode when the active scene is invalid;

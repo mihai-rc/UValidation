@@ -19,6 +19,11 @@ namespace UValidation.Editor
         private static readonly Dictionary<UnityEngine.Object, bool> s_ObjectResults = new();
         private static readonly Dictionary<string, bool> s_AssetResults = new(StringComparer.Ordinal);
 
+        /// <summary>
+        /// Raised after cached validation results are invalidated.
+        /// </summary>
+        internal static event Action ResultsInvalidated;
+
         static ValidationResultCache()
         {
             ObjectChangeEvents.changesPublished += OnChangesPublished;
@@ -80,22 +85,24 @@ namespace UValidation.Editor
         {
             s_ObjectResults.Clear();
             s_AssetResults.Clear();
+            ResultsInvalidated?.Invoke();
         }
 
         private static void OnChangesPublished(ref ObjectChangeEventStream stream)
         {
+            var resultsInvalidated = false;
             for (var i = 0; i < stream.length; i++)
             {
                 switch (stream.GetEventType(i))
                 {
                     case ObjectChangeKind.ChangeGameObjectOrComponentProperties:
                         stream.GetChangeGameObjectOrComponentPropertiesEvent(i, out var propertyChange);
-                        InvalidateObject(propertyChange.instanceId);
+                        InvalidateObject(EditorEntityIdCompatibility.GetEntityId(propertyChange));
                         break;
                     case ObjectChangeKind.ChangeAssetObjectProperties:
                         stream.GetChangeAssetObjectPropertiesEvent(i, out var assetChange);
                         InvalidateAsset(assetChange.guid.ToString());
-                        InvalidateObject(assetChange.instanceId);
+                        InvalidateObject(EditorEntityIdCompatibility.GetEntityId(assetChange));
                         break;
                     case ObjectChangeKind.CreateAssetObject:
                         stream.GetCreateAssetObjectEvent(i, out var createdAsset);
@@ -142,13 +149,22 @@ namespace UValidation.Editor
                         stream.GetUpdatePrefabInstancesEvent(i, out var prefabChange);
                         ClearSceneObjectResults(prefabChange.scene);
                         break;
+                    default:
+                        continue;
                 }
+
+                resultsInvalidated = true;
+            }
+
+            if (resultsInvalidated)
+            {
+                ResultsInvalidated?.Invoke();
             }
         }
 
-        private static void InvalidateObject(int instanceId)
+        private static void InvalidateObject(EntityId entityId)
         {
-            var target = EditorUtility.EntityIdToObject((EntityId)instanceId);
+            var target = EditorUtility.EntityIdToObject(entityId);
             if (target == null)
             {
                 return;
@@ -231,6 +247,7 @@ namespace UValidation.Editor
         private static void ClearObjectResults()
         {
             s_ObjectResults.Clear();
+            ResultsInvalidated?.Invoke();
         }
 
         private static void ClearProjectResults()
@@ -250,6 +267,8 @@ namespace UValidation.Editor
             {
                 s_ObjectResults.Remove(cachedObject);
             }
+
+            ResultsInvalidated?.Invoke();
         }
 
         private static bool ValidateObject(UnityEngine.Object target)

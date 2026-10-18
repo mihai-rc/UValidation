@@ -17,7 +17,7 @@ namespace UValidation.Editor
 
         static ValidationFailureEditorHandler()
         {
-            EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyWindowItemOnGUI;
+            EditorEntityIdCompatibility.RegisterHierarchyWindowItemCallback(OnHierarchyWindowItemOnGUI);
             EditorApplication.projectWindowItemOnGUI += OnProjectWindowItemOnGUI;
             EditorApplication.playModeStateChanged += OnPlayModeChanged;
             UnityEditor.Editor.finishedDefaultHeaderGUI += OnFinishedDefaultHeaderGUI;
@@ -61,9 +61,9 @@ namespace UValidation.Editor
                     path.EndsWith(".asset", System.StringComparison.OrdinalIgnoreCase));
         }
 
-        private static void OnHierarchyWindowItemOnGUI(int instanceId, Rect selectionRect)
+        private static void OnHierarchyWindowItemOnGUI(EntityId entityId, Rect selectionRect)
         {
-            var gameObject = EditorUtility.EntityIdToObject((EntityId)instanceId) as GameObject;
+            var gameObject = EditorUtility.EntityIdToObject(entityId) as GameObject;
             if (gameObject == null)
             {
                 return;

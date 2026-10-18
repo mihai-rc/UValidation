@@ -1,8 +1,16 @@
 using System.Collections;
+#if UNITY_6000_6_OR_NEWER
+using Unity.Hierarchy;
+using Unity.Hierarchy.Editor;
+#endif
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.TestTools;
+#if UNITY_6000_6_OR_NEWER
+using UnityEngine.UIElements;
+#endif
 using UValidation.Editor;
 
 namespace UValidation.Tests
@@ -153,6 +161,72 @@ namespace UValidation.Tests
                 Object.DestroyImmediate(gameObject);
             }
         }
+
+        [Test]
+        public void Cache_Clear_NotifiesFeedbackConsumers()
+        {
+            var invalidationCount = 0;
+            ValidationResultCache.ResultsInvalidated += HandleResultsInvalidated;
+            try
+            {
+                ValidationResultCache.Clear();
+
+                Assert.AreEqual(1, invalidationCount);
+            }
+            finally
+            {
+                ValidationResultCache.ResultsInvalidated -= HandleResultsInvalidated;
+            }
+
+            void HandleResultsInvalidated()
+            {
+                invalidationCount++;
+            }
+        }
+
+#if UNITY_6000_6_OR_NEWER
+        [UnityTest]
+        public IEnumerator HierarchyV2_InvalidGameObject_UsesRedNameLabel()
+        {
+            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
+            {
+                Assert.Ignore("Hierarchy window rendering requires a graphics device.");
+            }
+
+            var gameObject = CreateProbeObject("InvalidHierarchyItem", string.Empty);
+            var window = EditorWindow.CreateWindow<HierarchyWindow>();
+            try
+            {
+                window.position = new Rect(0.0f, 0.0f, 500.0f, 500.0f);
+                window.Show();
+
+                HierarchyViewItem invalidItem = null;
+                for (var frame = 0; frame < 30 && invalidItem == null; frame++)
+                {
+                    window.Repaint();
+                    yield return null;
+
+                    window.View.Query<HierarchyViewItem>().ForEach(item =>
+                    {
+                        if (item.Handler is HierarchyGameObjectHandler handler &&
+                            handler.GetGameObject(item.Node) == gameObject)
+                        {
+                            invalidItem = item;
+                        }
+                    });
+                }
+
+                Assert.IsNotNull(invalidItem, "The invalid GameObject did not appear in the Hierarchy window.");
+                yield return null;
+                Assert.AreEqual(Color.red, invalidItem.Name.resolvedStyle.color);
+            }
+            finally
+            {
+                window.Close();
+                Object.DestroyImmediate(gameObject);
+            }
+        }
+#endif
 
         [UnityTest]
         public IEnumerator Cache_RecordedPropertyChange_InvalidatesResult()
