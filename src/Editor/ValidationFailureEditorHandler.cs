@@ -9,7 +9,7 @@ namespace UValidation.Editor
     /// if the active scene, prefab or asset contains validation errors.
     /// </summary>
     [InitializeOnLoad]
-    public class ValidationFailureEditorHandler
+    internal class ValidationFailureEditorHandler
     {
         private static GUIStyle s_HierarchyLabelStyle;
         private static GUIStyle s_AssetLabelStyle;

@@ -11,7 +11,7 @@ namespace UValidation.Editor
     /// (via <see cref="HasNoNullsAttribute"/>) for collections where each element must be non-null.
     /// </remarks>
     [CustomPropertyDrawer(typeof(NotNullAttribute))]
-    public class NotNullFieldDrawer : ValidationFieldDrawer
+    internal class NotNullFieldDrawer : ValidationFieldDrawer
     {
         private const string k_AttributeName = nameof(NotNullAttribute);
         private const string k_AllowedTypeDescription = "UnityEngine.Object reference";

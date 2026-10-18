@@ -7,7 +7,7 @@ namespace UValidation.Editor
     /// Displays a warning when the field cannot be recursively validated.
     /// </summary>
     [CustomPropertyDrawer(typeof(IsValidAttribute))]
-    public class IsValidFieldDrawer : ValidationFieldDrawer
+    internal class IsValidFieldDrawer : ValidationFieldDrawer
     {
         private const string k_AttributeName = nameof(IsValidAttribute);
         private const string k_AllowedTypeDescription = "custom serializable classes, [SerializeReference] references, or arrays/lists of those";

@@ -10,7 +10,7 @@ namespace UValidation.Editor
     /// <summary>
     /// Provides helper methods for validating scenes, prefabs, game objects, and scriptable objects.
     /// </summary>
-    public static class ValidationHelper
+    internal static class ValidationHelper
     {
         /// <summary>
         /// Validates a prefab at the specified path.

@@ -2,7 +2,6 @@ using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
-using UnityEngine;
 using UnityEngine.SceneManagement;
 using NUnit.Framework;
 using UValidation.Editor;

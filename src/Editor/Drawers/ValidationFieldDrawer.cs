@@ -8,7 +8,7 @@ namespace UValidation.Editor
     /// <summary>
     /// Adapts one validation rule to Unity's UI Toolkit and IMGUI property-drawer entry points.
     /// </summary>
-    public abstract class ValidationFieldDrawer : PropertyDrawer
+    internal abstract class ValidationFieldDrawer : PropertyDrawer
     {
         /// <summary>
         /// Gets the validation attribute name shown in usage warnings.

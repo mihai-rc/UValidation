@@ -5,7 +5,7 @@ namespace UValidation.Editor
     /// <summary>
     /// Provides methods to display validation failure dialogs for scenes, prefabs, and scriptable objects.
     /// </summary>
-    public static class ValidationFailedDialog
+    internal static class ValidationFailedDialog
     {
         private const string k_SceneDialogTitle = "Validation Failed!";
         private const string k_DialogSaveSceneMessage = "There are GameObjects with required fields that are not set. Please fix them before saving the scene.";

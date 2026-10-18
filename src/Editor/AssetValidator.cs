@@ -9,7 +9,7 @@ namespace UValidation.Editor
     /// Ensures scenes, prefabs, and scriptable objects meet validation requirements and prevents saving invalid assets.
     /// </summary>
     [InitializeOnLoad]
-    public class AssetValidator : AssetModificationProcessor
+    internal class AssetValidator : AssetModificationProcessor
     {
         static AssetValidator()
         {

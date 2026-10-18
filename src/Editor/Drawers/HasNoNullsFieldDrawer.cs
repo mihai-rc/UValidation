@@ -11,7 +11,7 @@ namespace UValidation.Editor
     /// <see cref="NotNullFieldDrawer"/> (via <see cref="NotNullAttribute"/>) instead.
     /// </remarks>
     [CustomPropertyDrawer(typeof(HasNoNullsAttribute))]
-    public class HasNoNullsFieldDrawer : ValidationFieldDrawer
+    internal class HasNoNullsFieldDrawer : ValidationFieldDrawer
     {
         private const string k_AttributeName = nameof(HasNoNullsAttribute);
         private const string k_AllowedTypeDescription = "collections of UnityEngine.Object references";

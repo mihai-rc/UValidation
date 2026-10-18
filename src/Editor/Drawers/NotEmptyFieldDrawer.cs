@@ -7,7 +7,7 @@ namespace UValidation.Editor
     /// Displays an error message if the corresponding string or collection is empty.
     /// </summary>
     [CustomPropertyDrawer(typeof(NotEmptyAttribute))]
-    public class NotEmptyFieldDrawer : ValidationFieldDrawer
+    internal class NotEmptyFieldDrawer : ValidationFieldDrawer
     {
         private const string k_AttributeName = nameof(NotEmptyAttribute);
         private const string k_AllowedTypeDescription = "strings or collections";

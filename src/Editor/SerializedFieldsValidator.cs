@@ -10,7 +10,7 @@ namespace UValidation.Editor
     /// <summary>
     /// Validates objects automatically based on validation attributes.
     /// </summary>
-    public static class SerializedFieldsValidator
+    internal static class SerializedFieldsValidator
     {
         private class FieldValidationData
         {

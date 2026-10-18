@@ -11,7 +11,7 @@ namespace UValidation.Editor
     /// use <see cref="NotEmptyFieldDrawer"/> (via <see cref="NotEmptyAttribute"/>) instead.
     /// </remarks>
     [CustomPropertyDrawer(typeof(HasNoEmptiesAttribute))]
-    public class HasNoEmptiesFieldDrawer : ValidationFieldDrawer
+    internal class HasNoEmptiesFieldDrawer : ValidationFieldDrawer
     {
         private const string k_AttributeName = nameof(HasNoEmptiesAttribute);
         private const string k_AllowedTypeDescription = "collections of strings";
