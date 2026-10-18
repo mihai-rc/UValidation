@@ -26,7 +26,7 @@ namespace UValidation.Editor
 
         private static string[] OnWillSaveAssets(string[] paths)
         {
-            if (!ValidationEnforcement.BlockInvalidSaves)
+            if (!UValidationProjectSettings.Instance.BlockInvalidSaves)
             {
                 return paths;
             }
@@ -54,7 +54,7 @@ namespace UValidation.Editor
 
         private static void OnWillCreateAsset(string assetName)
         {
-            if (ValidationEnforcement.BlockInvalidSaves)
+            if (UValidationProjectSettings.Instance.BlockInvalidSaves)
             {
                 PendingAssetValidation.Queue(assetName);
             }
@@ -62,7 +62,7 @@ namespace UValidation.Editor
 
         private static bool OnWantsToQuit()
         {
-            if (!ValidationEnforcement.BlockEditorQuit)
+            if (!UValidationProjectSettings.Instance.BlockEditorQuit)
             {
                 return true;
             }

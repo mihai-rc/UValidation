@@ -69,7 +69,7 @@ validation.IsTrue(nameof(m_Config), m_Config, config => config.CalculateValue() 
 Validation feedback is always active in property drawers, Inspector headers, and the Hierarchy and
 Project windows. Enforcement is configured separately under **Project Settings > UValidation**:
 
-- block invalid scene, prefab, and ScriptableObject saves;
+- block invalid saves when Unity exposes the contents being written, and report ambiguous writes immediately after import;
 - block Play Mode when the active scene is invalid;
 - block Editor quit when a dirty ScriptableObject asset is invalid;
 - fail player builds when a processed scene is invalid.
@@ -80,14 +80,13 @@ in `ProjectSettings/UValidationSettings.asset`, so a team can commit and share t
 Unity may announce a newly created scene, prefab, or ScriptableObject before the AssetDatabase can
 read it. UValidation allows that initial creation to finish, validates the imported contents
 immediately afterward, and reports and highlights any failure, so a new asset can be configured
-afterwards, for example in Prefab Mode. Once the asset exists, later invalid saves are blocked
-normally.
+afterwards, for example in Prefab Mode.
 
-Unity writes some prefab changes from objects the save callback cannot inspect, such as **Apply
-Overrides** on a prefab instance or `PrefabUtility.SaveAsPrefabAsset` onto an existing prefab. Those
-saves are allowed, and UValidation validates the prefab as soon as Unity imports it, then reports
-and highlights any failure. Saves from Prefab Mode and edits made directly to a prefab asset are
-blocked when invalid.
+Unity's save callback reports only a prefab's destination path for operations such as **Apply
+Overrides**, `PrefabUtility.SaveAsPrefabAsset`, and direct prefab-asset saves. UValidation does not
+guess which in-memory object supplied those contents: it allows the write, validates the imported
+prefab, and then reports and highlights any failure. Prefab Mode exposes its actual save root, so
+an invalid Prefab Mode save is blocked before Unity writes it.
 
 Saving a scene onto another scene file that already exists, such as **Save As** over an existing
 scene, works the same way: the save is allowed and the written scene is validated as soon as Unity

@@ -1,12 +1,12 @@
 using System.Collections;
 using System.IO;
-using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.TestTools;
 using UValidation.Editor;
+using static UValidation.Tests.ValidationTestUtility;
 
 namespace UValidation.Tests
 {
@@ -206,12 +206,5 @@ namespace UValidation.Tests
             }
         }
 
-        private static Regex CreateValidationErrorPattern(string contextName)
-        {
-            return new Regex(
-                @"(?s)\[Validation\] String is null or empty!.*" +
-                $@" - Context: {Regex.Escape(contextName)}\r?\n.*" +
-                @" - Variable: m_Value");
-        }
     }
 }

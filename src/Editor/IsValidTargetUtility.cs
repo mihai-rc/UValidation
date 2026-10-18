@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 
@@ -32,50 +31,44 @@ namespace UValidation.Editor
     internal static class IsValidTargetUtility
     {
         /// <summary>
-        /// Classifies an attributed field and returns the type to validate recursively.
+        /// Classifies an attributed field for recursive validation.
         /// </summary>
         /// <param name="field"> The field to classify. </param>
-        /// <param name="nestedType"> The object or collection element type to validate. </param>
         /// <returns> The supported traversal kind. </returns>
-        internal static IsValidTargetKind Classify(FieldInfo field, out Type nestedType)
+        internal static IsValidTargetKind Classify(FieldInfo field)
         {
             var isManagedReference = field.IsDefined(typeof(SerializeReference), true);
-            return Classify(field.FieldType, isManagedReference, out nestedType);
+            return Classify(field.FieldType, isManagedReference);
         }
 
         /// <summary>
-        /// Classifies a field type and returns the type to validate recursively.
+        /// Classifies a field type for recursive validation.
         /// </summary>
         /// <param name="fieldType"> The field type to classify. </param>
         /// <param name="isManagedReference"> Whether the field is serialized with [SerializeReference]. </param>
-        /// <param name="nestedType"> The declared object or collection element type to validate. </param>
         /// <returns> The supported traversal kind. </returns>
         /// <remarks>
         /// A [SerializeReference] field may be declared as an interface, an abstract class, or object. Its values
         /// are validated according to their runtime type.
         /// </remarks>
-        internal static IsValidTargetKind Classify(Type fieldType, bool isManagedReference, out Type nestedType)
+        private static IsValidTargetKind Classify(Type fieldType, bool isManagedReference)
         {
-            var elementType = GetSupportedCollectionElementType(fieldType);
-            if (elementType != null)
+            if (UnitySerializedCollectionUtility.IsCollection(fieldType))
             {
-                if (IsTraversableType(elementType, isManagedReference))
+                if (UnitySerializedCollectionUtility.TryGetElementType(fieldType, out var elementType) &&
+                    IsTraversableType(elementType, isManagedReference))
                 {
-                    nestedType = elementType;
                     return IsValidTargetKind.Collection;
                 }
 
-                nestedType = null;
                 return IsValidTargetKind.Unsupported;
             }
 
             if (IsTraversableType(fieldType, isManagedReference))
             {
-                nestedType = fieldType;
                 return IsValidTargetKind.Object;
             }
 
-            nestedType = null;
             return IsValidTargetKind.Unsupported;
         }
 
@@ -106,18 +99,6 @@ namespace UValidation.Editor
                    (type.IsInterface || type.IsClass) &&
                    type != typeof(string) &&
                    !typeof(UnityEngine.Object).IsAssignableFrom(type);
-        }
-
-        private static Type GetSupportedCollectionElementType(Type type)
-        {
-            if (type.IsArray)
-            {
-                return type.GetElementType();
-            }
-
-            return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>)
-                ? type.GetGenericArguments()[0]
-                : null;
         }
     }
 }

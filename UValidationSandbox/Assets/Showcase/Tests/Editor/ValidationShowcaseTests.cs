@@ -16,7 +16,16 @@ namespace UValidation.Showcase.Tests
         [OneTimeSetUp]
         public void OpenShowcaseScene()
         {
-            m_Scene = EditorSceneManager.OpenScene(k_ShowcaseScenePath, OpenSceneMode.Single);
+            m_Scene = EditorSceneManager.OpenPreviewScene(k_ShowcaseScenePath);
+        }
+
+        [OneTimeTearDown]
+        public void CloseShowcaseScene()
+        {
+            if (m_Scene.IsValid())
+            {
+                EditorSceneManager.ClosePreviewScene(m_Scene);
+            }
         }
 
         [Test]

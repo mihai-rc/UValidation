@@ -10,8 +10,18 @@ namespace UValidation.Editor
     /// </summary>
     internal static class PendingAssetValidation
     {
-        // Maps each queued path to whether the asset did not exist yet when it was queued.
-        private static readonly Dictionary<string, bool> s_Paths = new(StringComparer.OrdinalIgnoreCase);
+        private readonly struct PendingPath
+        {
+            internal PendingPath(bool isNew)
+            {
+                IsNew = isNew;
+            }
+
+            internal bool IsNew { get; }
+        }
+
+        private static readonly Dictionary<string, PendingPath> s_Paths = new(StringComparer.OrdinalIgnoreCase);
+        private static bool s_DiscardScheduled;
 
         /// <summary>
         /// Queues a supported asset path for validation after import.
@@ -26,7 +36,14 @@ namespace UValidation.Editor
             }
 
             var isNew = !AssetDatabase.AssetPathExists(normalizedPath);
-            s_Paths[normalizedPath] = isNew || (s_Paths.TryGetValue(normalizedPath, out var wasNew) && wasNew);
+            if (s_Paths.TryGetValue(normalizedPath, out var pendingPath))
+            {
+                isNew |= pendingPath.IsNew;
+            }
+
+            s_Paths[normalizedPath] = new PendingPath(isNew);
+
+            ScheduleDiscard();
         }
 
         /// <summary>
@@ -39,7 +56,43 @@ namespace UValidation.Editor
         internal static bool TryConsume(string path, out string normalizedPath, out bool isNew)
         {
             normalizedPath = Normalize(path);
-            return s_Paths.Remove(normalizedPath, out isNew);
+            if (!s_Paths.Remove(normalizedPath, out var pendingPath))
+            {
+                isNew = false;
+                return false;
+            }
+
+            isNew = pendingPath.IsNew;
+            return true;
+        }
+
+        /// <summary>
+        /// Gets whether a path is currently awaiting post-import validation.
+        /// </summary>
+        internal static bool Contains(string path)
+        {
+            return s_Paths.ContainsKey(Normalize(path));
+        }
+
+        private static void ScheduleDiscard()
+        {
+            if (s_DiscardScheduled)
+            {
+                return;
+            }
+
+            s_DiscardScheduled = true;
+            EditorApplication.update += DiscardPendingPaths;
+        }
+
+        private static void DiscardPendingPaths()
+        {
+            EditorApplication.update -= DiscardPendingPaths;
+            s_DiscardScheduled = false;
+
+            // Imports caused by a save complete before the next editor update. Anything still pending now came
+            // from a canceled or failed write and must not be inherited by a later unrelated import.
+            s_Paths.Clear();
         }
 
         private static string Normalize(string path)
@@ -86,11 +139,21 @@ namespace UValidation.Editor
 
                 ValidateImportedAsset(pendingPath, isNew, false);
             }
+
+            foreach (var deletedAsset in deletedAssets)
+            {
+                PendingAssetValidation.TryConsume(deletedAsset, out _, out _);
+            }
+
+            foreach (var movedFromAssetPath in movedFromAssetPaths)
+            {
+                PendingAssetValidation.TryConsume(movedFromAssetPath, out _, out _);
+            }
         }
 
         private static void ValidateImportedAsset(string path, bool isNew, bool isRetry)
         {
-            if (!ValidationEnforcement.BlockInvalidSaves)
+            if (!UValidationProjectSettings.Instance.BlockInvalidSaves)
             {
                 return;
             }

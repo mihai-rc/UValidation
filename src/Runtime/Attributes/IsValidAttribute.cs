@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.CompilerServices;
 using UnityEngine;
 
 namespace UValidation
@@ -16,27 +15,11 @@ namespace UValidation
     public class IsValidAttribute : PropertyAttribute
     {
         /// <summary>
-        /// The path of the file where the attribute is used.
-        /// </summary>
-        public readonly string FilePath;
-
-        /// <summary>
-        /// The line of code at which the attribute is used.
-        /// </summary>
-        public readonly int LineNumber;
-
-        /// <summary>
         /// Initializes a new instance of the <see cref="IsValidAttribute"/> class.
         /// </summary>
-        /// <param name="filePath"> The source file containing the annotated field. </param>
-        /// <param name="lineNumber"> The source line containing the annotated field. </param>
-        public IsValidAttribute(
-            [CallerFilePath] string filePath = "", 
-            [CallerLineNumber] int lineNumber = 0)
+        public IsValidAttribute()
             : base(true)
         {
-            FilePath = filePath;
-            LineNumber = lineNumber;
         }
     }
 }

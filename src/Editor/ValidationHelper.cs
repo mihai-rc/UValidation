@@ -154,10 +154,7 @@ namespace UValidation.Editor
                 return ValidateAssetAtPathForSave(assetPath, reportError);
             }
 
-            var prefabRoot = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
-            return prefabRoot == null
-                ? GetUnreadableAssetState(assetPath)
-                : ToState(IsGameObjectValidRecursively(prefabRoot, reportError));
+            return ValidateImportedPrefabAtPath(assetPath, reportError);
         }
 
         /// <summary>
@@ -289,41 +286,15 @@ namespace UValidation.Editor
 
         private static AssetValidationState ValidatePrefabAtPathForSave(string prefabPath, bool reportError)
         {
-            var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
-            if (prefabStage != null &&
-                string.Equals(prefabStage.assetPath, prefabPath, StringComparison.Ordinal))
+            if (PrefabStageSaveTracker.TryGetSavingRoot(prefabPath, out var prefabRoot))
             {
-                return ToState(IsGameObjectValidRecursively(prefabStage.prefabContentsRoot, reportError));
+                return ToState(IsGameObjectValidRecursively(prefabRoot, reportError));
             }
 
-            var prefabRoot = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
-            if (prefabRoot == null)
-            {
-                return GetUnreadableAssetState(prefabPath);
-            }
-
-            // Apply Overrides and SaveAsPrefabAsset write contents built from objects this callback cannot
-            // reach, while the loaded asset still holds the previous version. Only unsaved changes on the
-            // loaded asset prove that it is the version being saved.
-            if (!HasUnsavedChanges(prefabPath))
-            {
-                return AssetValidationState.ValidateAfterImport;
-            }
-
-            return ToState(IsGameObjectValidRecursively(prefabRoot, reportError));
-        }
-
-        private static bool HasUnsavedChanges(string assetPath)
-        {
-            foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(assetPath))
-            {
-                if (asset != null && EditorUtility.IsDirty(asset))
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            // Apply Overrides, SaveAsPrefabAsset, and direct prefab-asset saves all report only the destination
+            // path. Their source object is not exposed here, so validating any loaded object can inspect unrelated
+            // contents. Allow those ambiguous writes and validate exactly what Unity imports instead.
+            return AssetValidationState.ValidateAfterImport;
         }
 
         private static AssetValidationState ValidateSceneAtPathForSave(string scenePath, bool reportError)
@@ -353,6 +324,35 @@ namespace UValidation.Editor
             }
 
             return ToState(IsSceneValidAtPath(scenePath, reportError));
+        }
+
+        private static AssetValidationState ValidateImportedPrefabAtPath(string prefabPath, bool reportError)
+        {
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) == null)
+            {
+                return GetUnreadableAssetState(prefabPath);
+            }
+
+            GameObject prefabRoot = null;
+            try
+            {
+                // Load isolated contents so dirty objects already loaded at this path cannot be mistaken for
+                // the version Unity just imported from disk.
+                prefabRoot = PrefabUtility.LoadPrefabContents(prefabPath);
+                return ToState(IsGameObjectValidRecursively(prefabRoot, reportError));
+            }
+            catch (Exception exception)
+            {
+                ReportUnreadableAsset("prefab", prefabPath, exception, reportError);
+                return GetUnreadableAssetState(prefabPath);
+            }
+            finally
+            {
+                if (prefabRoot != null)
+                {
+                    PrefabUtility.UnloadPrefabContents(prefabRoot);
+                }
+            }
         }
 
         private static AssetValidationState ValidateScriptableObjectAtPathForSave(

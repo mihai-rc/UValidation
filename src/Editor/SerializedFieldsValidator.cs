@@ -97,7 +97,7 @@ namespace UValidation.Editor
             }
 
             var traversalState = new ValidationTraversalState(target);
-            ValidateAttributesInternal(target, validation, traversalState);
+            ValidateObjectFields(target, null, validation, traversalState);
         }
 
         /// <summary>
@@ -111,8 +111,9 @@ namespace UValidation.Editor
             s_ReportedNonSerializedFields.Clear();
         }
 
-        private static void ValidateAttributesInternal(
-            UnityEngine.Object target,
+        private static void ValidateObjectFields(
+            object target,
+            string objectPath,
             Validation validation,
             ValidationTraversalState traversalState)
         {
@@ -128,17 +129,20 @@ namespace UValidation.Editor
                 }
 
                 var value = data.Field.GetValue(target);
-                ApplyFieldValidation(data, data.CleanName, value, validation);
+                var fieldName = string.IsNullOrEmpty(objectPath)
+                    ? data.CleanName
+                    : $"{objectPath}.{data.CleanName}";
+                ApplyFieldValidation(data, fieldName, value, validation);
 
                 if (data.IsValid != null && value != null)
                 {
-                    ValidateNestedValue(data.IsValidTarget, value, data.CleanName, validation, traversalState);
+                    ValidateNestedValue(data.IsValidTarget, value, fieldName, validation, traversalState);
                 }
             }
 
             if (target is IValidatable validatable)
             {
-                RunCustomValidation(validatable, null, validation);
+                RunCustomValidation(validatable, objectPath, validation);
             }
         }
 
@@ -173,30 +177,7 @@ namespace UValidation.Editor
 
             try
             {
-                var handlers = GetFieldsAttributeData(type);
-
-                foreach (var data in handlers)
-                {
-                    if (!data.IsSerialized)
-                    {
-                        ReportNonSerializedField(data.Field, traversalState.Context);
-                        continue;
-                    }
-
-                    var value = data.Field.GetValue(nestedObj);
-                    var qualifiedName = $"{parentFieldName}.{data.CleanName}";
-                    ApplyFieldValidation(data, qualifiedName, value, validation);
-
-                    if (data.IsValid != null && value != null)
-                    {
-                        ValidateNestedValue(data.IsValidTarget, value, qualifiedName, validation, traversalState);
-                    }
-                }
-
-                if (nestedObj is IValidatable validatable)
-                {
-                    RunCustomValidation(validatable, parentFieldName, validation);
-                }
+                ValidateObjectFields(nestedObj, parentFieldName, validation, traversalState);
             }
             finally
             {
@@ -288,7 +269,7 @@ namespace UValidation.Editor
                             HasNoEmpties = noEmptyItems,
                             IsValid = isValid,
                             IsValidTarget = isValid != null
-                                ? IsValidTargetUtility.Classify(field, out _)
+                                ? IsValidTargetUtility.Classify(field)
                                 : IsValidTargetKind.Unsupported,
                             IsSerialized = IsSerializedField(field)
                         });
@@ -350,17 +331,11 @@ namespace UValidation.Editor
                 return true;
             }
 
-            if (type.IsArray)
+            if (UnitySerializedCollectionUtility.IsCollection(type))
             {
                 return allowContainer &&
-                       type.GetArrayRank() == 1 &&
-                       IsSupportedInlineType(type.GetElementType(), false);
-            }
-
-            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
-            {
-                return allowContainer &&
-                       IsSupportedInlineType(type.GetGenericArguments()[0], false);
+                       UnitySerializedCollectionUtility.TryGetElementType(type, out var elementType) &&
+                       IsSupportedInlineType(elementType, false);
             }
 
             if (type.IsInterface ||
@@ -402,37 +377,26 @@ namespace UValidation.Editor
                 return false;
             }
 
-            if (type.IsArray)
+            if (UnitySerializedCollectionUtility.IsCollection(type))
             {
                 return isFieldType &&
-                       type.GetArrayRank() == 1 &&
-                       IsSupportedManagedReferenceType(type.GetElementType(), false);
-            }
-
-            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
-            {
-                return isFieldType &&
-                       IsSupportedManagedReferenceType(type.GetGenericArguments()[0], false);
+                       UnitySerializedCollectionUtility.TryGetElementType(type, out var elementType) &&
+                       IsSupportedManagedReferenceType(elementType, false);
             }
 
             if (type.IsValueType ||
                 type == typeof(string) ||
                 typeof(UnityEngine.Object).IsAssignableFrom(type) ||
-                typeof(Delegate).IsAssignableFrom(type))
+                typeof(Delegate).IsAssignableFrom(type) ||
+                typeof(IDictionary).IsAssignableFrom(type))
             {
                 return false;
             }
 
-            if (type == typeof(object) || type.IsInterface)
-            {
-                return true;
-            }
-
-            // Unity serializes a single managed reference declared as any class except Dictionary<,>,
-            // but requires array and list elements declared as a class to be [Serializable].
-            return isFieldType
-                ? !(type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Dictionary<,>))
-                : type.IsDefined(typeof(SerializableAttribute), false);
+            // SerializeReference accepts class, abstract-class, interface, and object declarations. For arrays
+            // and lists, the attribute applies to each element, so the declaration itself does not need to be
+            // [Serializable]; Unity requires that attribute on each concrete value assigned at runtime instead.
+            return type == typeof(object) || type.IsInterface || type.IsClass;
         }
 
         private static void ApplyFieldValidation(FieldValidationData data, string fieldName, object value, Validation validation)

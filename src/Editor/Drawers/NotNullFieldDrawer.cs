@@ -1,6 +1,4 @@
 using UnityEditor;
-using UnityEngine;
-using UnityEngine.UIElements;
 
 namespace UValidation.Editor
 {
@@ -13,50 +11,32 @@ namespace UValidation.Editor
     /// (via <see cref="HasNoNullsAttribute"/>) for collections where each element must be non-null.
     /// </remarks>
     [CustomPropertyDrawer(typeof(NotNullAttribute))]
-    public class NotNullFieldDrawer : PropertyDrawer
+    public class NotNullFieldDrawer : ValidationFieldDrawer
     {
         private const string k_AttributeName = nameof(NotNullAttribute);
         private const string k_AllowedTypeDescription = "UnityEngine.Object reference";
         private const string k_ViolationMessage = "An object reference must be assigned.";
 
-        /// <inheritdoc/>
-        public override VisualElement CreatePropertyGUI(SerializedProperty property)
+        /// <inheritdoc />
+        protected override string AttributeName => k_AttributeName;
+
+        /// <inheritdoc />
+        protected override string AllowedTypeDescription => k_AllowedTypeDescription;
+
+        /// <inheritdoc />
+        protected override string ViolationMessage => k_ViolationMessage;
+
+        /// <inheritdoc />
+        protected override bool IsUsageValid(SerializedProperty property)
         {
-            return FieldDrawerHelper.CreatePropertyGUI(
-                property,
-                k_AttributeName,
-                k_AllowedTypeDescription,
-                k_ViolationMessage,
-                p => IsObjectReference(p) && ValidationAttributeTargetUtility.SupportsNotNull(fieldInfo.FieldType),
-                p => p.objectReferenceValue != null);
+            return property.propertyType == SerializedPropertyType.ObjectReference &&
+                   ValidationAttributeTargetUtility.SupportsNotNull(fieldInfo.FieldType);
         }
 
-        /// <inheritdoc/>
-        public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
+        /// <inheritdoc />
+        protected override bool IsPropertyValid(SerializedProperty property)
         {
-            FieldDrawerHelper.OnGUI(
-                position, 
-                property, 
-                label,
-                k_AttributeName,
-                k_AllowedTypeDescription,
-                k_ViolationMessage,
-                p => IsObjectReference(p) && ValidationAttributeTargetUtility.SupportsNotNull(fieldInfo.FieldType),
-                p => p.objectReferenceValue != null);
-        }
-
-        /// <inheritdoc/>
-        public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
-        {
-            return FieldDrawerHelper.GetPropertyHeight(property, label, k_AttributeName,
-                k_AllowedTypeDescription, k_ViolationMessage,
-                p => IsObjectReference(p) && ValidationAttributeTargetUtility.SupportsNotNull(fieldInfo.FieldType),
-                p => p.objectReferenceValue != null);
-        }
-
-        private static bool IsObjectReference(SerializedProperty property)
-        {
-            return property.propertyType == SerializedPropertyType.ObjectReference;
+            return property.objectReferenceValue != null;
         }
     }
 }

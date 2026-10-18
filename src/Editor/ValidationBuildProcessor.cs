@@ -22,7 +22,17 @@ namespace UValidation.Editor
         /// <param name="report"> The build report. </param>
         public void OnProcessScene(Scene scene, BuildReport report)
         {
-            if (!ValidationEnforcement.FailBuild || !BuildPipeline.isBuildingPlayer)
+            ProcessScene(scene, BuildPipeline.isBuildingPlayer);
+        }
+
+        /// <summary>
+        /// Applies build-scene validation for the supplied pipeline state.
+        /// </summary>
+        /// <param name="scene"> The scene being processed. </param>
+        /// <param name="isBuildingPlayer"> Whether Unity is currently producing a player. </param>
+        internal static void ProcessScene(Scene scene, bool isBuildingPlayer)
+        {
+            if (!UValidationProjectSettings.Instance.FailBuild || !isBuildingPlayer)
             {
                 return;
             }

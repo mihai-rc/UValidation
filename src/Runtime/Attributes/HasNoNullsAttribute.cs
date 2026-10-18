@@ -1,6 +1,5 @@
 using System;
 using System.Runtime.CompilerServices;
-using UnityEngine;
 
 namespace UValidation
 {
@@ -8,25 +7,18 @@ namespace UValidation
     /// Specifies that a serialized array or list of Unity object references must not contain null items.
     /// </summary>
     [AttributeUsage(AttributeTargets.Field)]
-    public class HasNoNullsAttribute : PropertyAttribute
+    public class HasNoNullsAttribute : ValidationPropertyAttribute
     {
         /// <summary>
-        /// The path of the file where the attribute is used.
+        /// Initializes a new instance of the <see cref="HasNoNullsAttribute"/> class.
         /// </summary>
-        public readonly string FilePath;
-
-        /// <summary>
-        /// The line of code at which the attribute is used.
-        /// </summary>
-        public readonly int LineNumber;
-
+        /// <param name="filePath"> The source file containing the annotated field. </param>
+        /// <param name="lineNumber"> The source line containing the annotated field. </param>
         public HasNoNullsAttribute(
             [CallerFilePath] string filePath = "", 
             [CallerLineNumber] int lineNumber = 0)
-            : base(true)
+            : base(filePath, lineNumber, true)
         {
-            FilePath = filePath;
-            LineNumber = lineNumber;
         }
     }
 }

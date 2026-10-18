@@ -13,8 +13,9 @@ namespace UValidation.Showcase
             "Each component contains supported passing values, supported failing values, and deliberate " +
             "misuse examples. Yellow HelpBoxes indicate unsupported attribute placement; red HelpBoxes " +
             "indicate invalid values.\n\n" +
-            "The scene is intentionally invalid. Saving it while HighTower > Enable Validation is enabled " +
+            "The scene is intentionally invalid. Saving it while Project Settings > UValidation > " +
+            "Block Invalid Saves is enabled " +
             "should be blocked.\n\n" +
-            "Use HighTower > UValidation > Rebuild Showcase Scene to restore all examples.";
+            "Use UValidation > Rebuild Showcase Scene to restore all examples.";
     }
 }

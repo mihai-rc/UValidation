@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -9,6 +8,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UValidation.Editor;
+using static UValidation.Tests.ValidationTestUtility;
 
 namespace UValidation.Tests
 {
@@ -31,31 +31,36 @@ namespace UValidation.Tests
             AssetValidator.PromptOnBlockedSave = false;
             AssetDatabase.DeleteAsset(k_TestFolderPath);
             AssetDatabase.CreateFolder("Assets", k_TestFolderName);
-            m_OpenedBaseScene = OpenSavedSceneIfUntitled();
+            m_OpenedBaseScene = OpenSavedSceneIfUntitled(k_BaseScenePath);
         }
 
         [TearDown]
         public void TearDown()
         {
-            UValidationProjectSettings.Instance.BlockInvalidSaves = false;
-            foreach (var scene in m_Scenes)
+            try
             {
-                if (scene.IsValid())
+                UValidationProjectSettings.Instance.BlockInvalidSaves = false;
+                foreach (var scene in m_Scenes)
                 {
-                    EditorSceneManager.CloseScene(scene, true);
+                    if (scene.IsValid())
+                    {
+                        EditorSceneManager.CloseScene(scene, true);
+                    }
                 }
-            }
 
-            if (m_OpenedBaseScene)
+                if (m_OpenedBaseScene)
+                {
+                    EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                }
+
+                m_Scenes.Clear();
+                AssetDatabase.DeleteAsset(k_TestFolderPath);
+            }
+            finally
             {
-                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                AssetValidator.PromptOnBlockedSave = true;
+                UValidationProjectSettings.Instance.BlockInvalidSaves = m_BlockInvalidSaves;
             }
-
-            m_Scenes.Clear();
-            AssetDatabase.DeleteAsset(k_TestFolderPath);
-
-            AssetValidator.PromptOnBlockedSave = true;
-            UValidationProjectSettings.Instance.BlockInvalidSaves = m_BlockInvalidSaves;
         }
 
         [Test]
@@ -97,7 +102,7 @@ namespace UValidation.Tests
             UValidationProjectSettings.Instance.BlockInvalidSaves = true;
 
             LogAssert.Expect(LogType.Error, CreateValidationErrorPattern("Overwritten"));
-            LogAssert.Expect(LogType.Error, CreateSavedAssetFailurePattern("OverwrittenTarget"));
+            LogAssert.Expect(LogType.Error, CreateSavedAssetFailurePattern("OverwrittenTarget", ".unity"));
             Assert.IsTrue(EditorSceneManager.SaveScene(scene, targetPath));
             yield return null;
 
@@ -114,7 +119,7 @@ namespace UValidation.Tests
             UValidationProjectSettings.Instance.BlockInvalidSaves = true;
 
             LogAssert.Expect(LogType.Error, CreateValidationErrorPattern("Copied"));
-            LogAssert.Expect(LogType.Error, CreateSavedAssetFailurePattern("CopyTarget"));
+            LogAssert.Expect(LogType.Error, CreateSavedAssetFailurePattern("CopyTarget", ".unity"));
             Assert.IsTrue(EditorSceneManager.SaveScene(scene, targetPath, true));
             yield return null;
 
@@ -130,7 +135,7 @@ namespace UValidation.Tests
             UValidationProjectSettings.Instance.BlockInvalidSaves = true;
 
             LogAssert.Expect(LogType.Error, CreateValidationErrorPattern("Created"));
-            LogAssert.Expect(LogType.Error, CreateNewAssetFailurePattern("Created"));
+            LogAssert.Expect(LogType.Error, CreateNewAssetFailurePattern("Created", ".unity"));
             Assert.IsTrue(EditorSceneManager.SaveScene(scene, path));
             yield return null;
 
@@ -178,43 +183,5 @@ namespace UValidation.Tests
             return File.ReadAllText(GetAbsolutePath(assetPath));
         }
 
-        private static string GetAbsolutePath(string assetPath)
-        {
-            return Path.Combine(Path.GetDirectoryName(Application.dataPath), assetPath);
-        }
-
-        private static Regex CreateValidationErrorPattern(string contextName)
-        {
-            return new Regex(
-                @"(?s)\[Validation\] String is null or empty!.*" +
-                $@" - Context: {Regex.Escape(contextName)}\r?\n.*" +
-                @" - Variable: m_Value");
-        }
-
-        private static Regex CreateSavedAssetFailurePattern(string sceneName)
-        {
-            return new Regex($@"UValidation found invalid data in '.*/{Regex.Escape(sceneName)}\.unity' after Unity saved it");
-        }
-
-        private static Regex CreateNewAssetFailurePattern(string sceneName)
-        {
-            return new Regex($@"UValidation found invalid data in newly created asset '.*/{Regex.Escape(sceneName)}\.unity'");
-        }
-
-        private static bool OpenSavedSceneIfUntitled()
-        {
-            // Unity refuses to create additive scenes while an untitled scene is loaded, which is how EditMode runs start.
-            for (var i = 0; i < SceneManager.sceneCount; i++)
-            {
-                if (string.IsNullOrEmpty(SceneManager.GetSceneAt(i).path))
-                {
-                    var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                    Assert.IsTrue(EditorSceneManager.SaveScene(scene, k_BaseScenePath));
-                    return true;
-                }
-            }
-
-            return false;
-        }
     }
 }

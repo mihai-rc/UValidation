@@ -65,17 +65,19 @@ their changes from being saved. Select an asset to inspect its field-level HelpB
 
 ## Rebuilding the showcases
 
-Use `HighTower > UValidation > Rebuild Showcase Scene`. The builder temporarily disables save
-validation, writes the intentionally invalid scene, restores the previous validation preference,
-and selects the overview object.
+Use `UValidation > Rebuild Showcase Scene`. The builder writes the intentionally invalid scene and
+selects the overview object.
 
-Use `HighTower > UValidation > Rebuild ScriptableObject Showcase` to recreate every generated
-`.asset` file with deterministic values. The builder also temporarily disables save validation and
-selects the valid asset when it finishes.
+Use `UValidation > Rebuild ScriptableObject Showcase` to recreate every generated `.asset` file
+with deterministic values. The builder selects the valid asset when it finishes.
 
-Use `HighTower > UValidation > Rebuild Inheritance Showcase` to regenerate the inheritance scene.
-Close that scene before rebuilding it. The builder preserves other open scenes and restores the
-validation preference after saving the intentionally invalid examples.
+Use `UValidation > Rebuild Inheritance Showcase` to regenerate the inheritance scene. Close that
+scene before rebuilding it; the builder preserves the other open scenes.
+
+These builders deliberately create invalid content. When **Block Invalid Saves** is enabled,
+UValidation reports those failures after the new or replacement assets are imported. Temporarily
+disable that policy under **Project Settings > UValidation** if you want to rebuild without those
+expected errors.
 
 ## Expected semantics
 

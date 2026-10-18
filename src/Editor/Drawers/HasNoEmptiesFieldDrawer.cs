@@ -1,6 +1,4 @@
 using UnityEditor;
-using UnityEngine;
-using UnityEngine.UIElements;
 
 namespace UValidation.Editor
 {
@@ -13,50 +11,41 @@ namespace UValidation.Editor
     /// use <see cref="NotEmptyFieldDrawer"/> (via <see cref="NotEmptyAttribute"/>) instead.
     /// </remarks>
     [CustomPropertyDrawer(typeof(HasNoEmptiesAttribute))]
-    public class HasNoEmptiesFieldDrawer : PropertyDrawer
+    public class HasNoEmptiesFieldDrawer : ValidationFieldDrawer
     {
         private const string k_AttributeName = nameof(HasNoEmptiesAttribute);
         private const string k_AllowedTypeDescription = "collections of strings";
         private const string k_ViolationMessage = "The collection must not contain null or empty strings.";
 
-        /// <inheritdoc/>
-        public override VisualElement CreatePropertyGUI(SerializedProperty property)
+        /// <inheritdoc />
+        protected override string AttributeName => k_AttributeName;
+
+        /// <inheritdoc />
+        protected override string AllowedTypeDescription => k_AllowedTypeDescription;
+
+        /// <inheritdoc />
+        protected override string ViolationMessage => k_ViolationMessage;
+
+        /// <inheritdoc />
+        protected override bool SupportsElementValidation => true;
+
+        /// <inheritdoc />
+        protected override bool IsUsageValid(SerializedProperty property)
         {
-            return FieldDrawerHelper.CreatePropertyGUI(
-                property,
-                k_AttributeName,
-                k_AllowedTypeDescription,
-                k_ViolationMessage,
-                p => FieldDrawerHelper.IsCollection(p) &&
-                    ValidationAttributeTargetUtility.SupportsHasNoEmpties(fieldInfo.FieldType),
-                FieldDrawerHelper.HasNoEmptyStrings,
-                p => !string.IsNullOrEmpty(p.stringValue));
+            return FieldDrawerHelper.IsCollection(property) &&
+                   ValidationAttributeTargetUtility.SupportsHasNoEmpties(fieldInfo.FieldType);
         }
 
-        /// <inheritdoc/>
-        public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
+        /// <inheritdoc />
+        protected override bool IsPropertyValid(SerializedProperty property)
         {
-            FieldDrawerHelper.OnGUI(
-                position,
-                property,
-                label,
-                k_AttributeName,
-                k_AllowedTypeDescription,
-                k_ViolationMessage,
-                p => FieldDrawerHelper.IsCollection(p) &&
-                    ValidationAttributeTargetUtility.SupportsHasNoEmpties(fieldInfo.FieldType),
-                FieldDrawerHelper.HasNoEmptyStrings,
-                p => !string.IsNullOrEmpty(p.stringValue));
+            return FieldDrawerHelper.HasNoEmptyStrings(property);
         }
 
-        /// <inheritdoc/>
-        public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
+        /// <inheritdoc />
+        protected override bool IsElementValid(SerializedProperty property)
         {
-            return FieldDrawerHelper.GetPropertyHeight(property, label, k_AttributeName,
-                k_AllowedTypeDescription, k_ViolationMessage,
-                p => FieldDrawerHelper.IsCollection(p) &&
-                    ValidationAttributeTargetUtility.SupportsHasNoEmpties(fieldInfo.FieldType),
-                FieldDrawerHelper.HasNoEmptyStrings);
+            return !string.IsNullOrEmpty(property.stringValue);
         }
     }
 }

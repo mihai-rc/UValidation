@@ -132,6 +132,7 @@ namespace UValidation.Tests
             [SerializeReference, IsValid] private IRule m_ManagedInterface;
             [SerializeReference, IsValid] private List<IRule> m_ManagedInterfaceList;
             [SerializeReference, IsValid] private RuleBase m_ManagedAbstract;
+            [SerializeReference, IsValid] private List<RuleBase> m_ManagedAbstractList;
             [SerializeReference, IsValid] private object m_ManagedObject;
         }
 
@@ -160,6 +161,7 @@ namespace UValidation.Tests
             [SerializeReference, IsValid] private IRule m_Interface;
             [SerializeReference, IsValid] private List<IRule> m_InterfaceList;
             [SerializeReference, IsValid] private RuleBase m_Abstract;
+            [SerializeReference, IsValid] private List<RuleBase> m_AbstractList;
             [SerializeReference, IsValid] private object m_Object;
 
             public void SetAll(string name)
@@ -167,6 +169,7 @@ namespace UValidation.Tests
                 m_Interface = new NamedRule(name);
                 m_InterfaceList = new List<IRule> { new NamedRule(name) };
                 m_Abstract = new NamedRule(name);
+                m_AbstractList = new List<RuleBase> { new NamedRule(name) };
                 m_Object = new NamedRule(name);
             }
 
@@ -183,6 +186,9 @@ namespace UValidation.Tests
                     case nameof(m_Abstract):
                         m_Abstract = rule;
                         break;
+                    case nameof(m_AbstractList):
+                        m_AbstractList = new List<RuleBase> { rule };
+                        break;
                     case nameof(m_Object):
                         m_Object = rule;
                         break;
@@ -195,6 +201,11 @@ namespace UValidation.Tests
         private sealed class ManagedDictionaryHost : MonoBehaviour
         {
             [SerializeReference, IsValid] private Dictionary<string, NamedRule> m_Rules = new();
+        }
+
+        private sealed class ManagedDictionaryListHost : MonoBehaviour
+        {
+            [SerializeReference, IsValid] private List<Dictionary<string, NamedRule>> m_Rules = new();
         }
 
         [Test]
@@ -400,6 +411,7 @@ namespace UValidation.Tests
         [TestCase("m_ManagedInterface", nameof(IsValidTargetKind.Object))]
         [TestCase("m_ManagedInterfaceList", nameof(IsValidTargetKind.Collection))]
         [TestCase("m_ManagedAbstract", nameof(IsValidTargetKind.Object))]
+        [TestCase("m_ManagedAbstractList", nameof(IsValidTargetKind.Collection))]
         [TestCase("m_ManagedObject", nameof(IsValidTargetKind.Object))]
         public void IsValid_TargetClassification_MatchesSupportedContract(
             string fieldName,
@@ -410,12 +422,13 @@ namespace UValidation.Tests
                 BindingFlags.Instance | BindingFlags.NonPublic);
 
             Assert.IsNotNull(field);
-            Assert.AreEqual(expected, IsValidTargetUtility.Classify(field, out _).ToString());
+            Assert.AreEqual(expected, IsValidTargetUtility.Classify(field).ToString());
         }
 
         [TestCase("m_Interface", @"m_Interface\.m_Name")]
         [TestCase("m_InterfaceList", @"m_InterfaceList\[0\]\.m_Name")]
         [TestCase("m_Abstract", @"m_Abstract\.m_Name")]
+        [TestCase("m_AbstractList", @"m_AbstractList\[0\]\.m_Name")]
         [TestCase("m_Object", @"m_Object\.m_Name")]
         public void IsValid_ManagedReference_ValidatesRuntimeValue(string fieldName, string variablePattern)
         {
@@ -466,6 +479,28 @@ namespace UValidation.Tests
                 LogAssert.Expect(
                     LogType.Warning,
                     new Regex(@"nonserialized field '.*ManagedDictionaryHost\.m_Rules' are ignored"));
+                using var validation = Validate(host);
+                Assert.IsTrue(validation.Passed);
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [Test]
+        public void IsValid_ManagedReferenceDictionaryList_IsReportedAsNonserialized()
+        {
+            var gameObject = new GameObject(nameof(ManagedDictionaryListHost));
+            try
+            {
+                var host = gameObject.AddComponent<ManagedDictionaryListHost>();
+                SerializedFieldsValidator.ResetReportedNonSerializedFields();
+
+                LogAssert.Expect(
+                    LogType.Warning,
+                    new Regex(@"nonserialized field '.*ManagedDictionaryListHost\.m_Rules' are ignored"));
                 using var validation = Validate(host);
                 Assert.IsTrue(validation.Passed);
                 LogAssert.NoUnexpectedReceived();

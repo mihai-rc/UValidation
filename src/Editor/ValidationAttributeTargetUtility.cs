@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 
 namespace UValidation.Editor
 {
@@ -25,7 +24,8 @@ namespace UValidation.Editor
         /// <returns> Whether the attribute supports the field type. </returns>
         internal static bool SupportsNotEmpty(Type fieldType)
         {
-            return fieldType == typeof(string) || GetCollectionElementType(fieldType) != null;
+            return fieldType == typeof(string) ||
+                   UnitySerializedCollectionUtility.TryGetElementType(fieldType, out _);
         }
 
         /// <summary>
@@ -35,8 +35,8 @@ namespace UValidation.Editor
         /// <returns> Whether the attribute supports the field type. </returns>
         internal static bool SupportsHasNoNulls(Type fieldType)
         {
-            var elementType = GetCollectionElementType(fieldType);
-            return elementType != null && typeof(UnityEngine.Object).IsAssignableFrom(elementType);
+            return UnitySerializedCollectionUtility.TryGetElementType(fieldType, out var elementType) &&
+                   typeof(UnityEngine.Object).IsAssignableFrom(elementType);
         }
 
         /// <summary>
@@ -46,24 +46,8 @@ namespace UValidation.Editor
         /// <returns> Whether the attribute supports the field type. </returns>
         internal static bool SupportsHasNoEmpties(Type fieldType)
         {
-            return GetCollectionElementType(fieldType) == typeof(string);
-        }
-
-        private static Type GetCollectionElementType(Type fieldType)
-        {
-            if (fieldType == null)
-            {
-                return null;
-            }
-
-            if (fieldType.IsArray)
-            {
-                return fieldType.GetArrayRank() == 1 ? fieldType.GetElementType() : null;
-            }
-
-            return fieldType.IsGenericType && fieldType.GetGenericTypeDefinition() == typeof(List<>)
-                ? fieldType.GetGenericArguments()[0]
-                : null;
+            return UnitySerializedCollectionUtility.TryGetElementType(fieldType, out var elementType) &&
+                   elementType == typeof(string);
         }
     }
 }

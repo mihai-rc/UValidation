@@ -11,6 +11,10 @@ namespace UValidation.Editor
     [InitializeOnLoad]
     public class ValidationFailureEditorHandler
     {
+        private static GUIStyle s_HierarchyLabelStyle;
+        private static GUIStyle s_AssetLabelStyle;
+        private static bool s_StylesUseProSkin;
+
         static ValidationFailureEditorHandler()
         {
             EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyWindowItemOnGUI;
@@ -39,7 +43,7 @@ namespace UValidation.Editor
         {
             var path = AssetDatabase.GUIDToAssetPath(guid);
             if (string.IsNullOrEmpty(path) ||
-                !path.EndsWith(".asset", System.StringComparison.OrdinalIgnoreCase) ||
+                !IsSupportedProjectAssetPath(path) ||
                 ValidationResultCache.IsAssetValid(path))
             {
                 return;
@@ -56,7 +60,7 @@ namespace UValidation.Editor
 
         private static void OnPlayModeChanged(PlayModeStateChange state)
         {
-            if (!ValidationEnforcement.BlockPlayMode)
+            if (!UValidationProjectSettings.Instance.BlockPlayMode)
             {
                 return;
             }
@@ -116,21 +120,43 @@ namespace UValidation.Editor
             return invalidCount;
         }
 
+        /// <summary>
+        /// Gets whether a Project-window asset participates in validation feedback.
+        /// </summary>
+        /// <param name="path"> Project-relative asset path. </param>
+        /// <returns> True for scenes, prefabs, and ScriptableObject asset files. </returns>
+        internal static bool IsSupportedProjectAssetPath(string path)
+        {
+            return !string.IsNullOrEmpty(path) &&
+                   (path.EndsWith(".unity", System.StringComparison.OrdinalIgnoreCase) ||
+                   path.EndsWith(".prefab", System.StringComparison.OrdinalIgnoreCase) ||
+                   path.EndsWith(".asset", System.StringComparison.OrdinalIgnoreCase));
+        }
+
         private static void DrawRedLabel(Rect selectionRect, string labelName, bool isAsset)
         {
-            var textStyle = new GUIStyle(GUI.skin.label)
+            EditorGUI.LabelField(selectionRect, labelName, GetRedLabelStyle(isAsset));
+        }
+
+        private static GUIStyle GetRedLabelStyle(bool isAsset)
+        {
+            if (s_HierarchyLabelStyle == null || s_StylesUseProSkin != EditorGUIUtility.isProSkin)
+            {
+                s_StylesUseProSkin = EditorGUIUtility.isProSkin;
+                s_HierarchyLabelStyle = CreateRedLabelStyle(false);
+                s_AssetLabelStyle = CreateRedLabelStyle(true);
+            }
+
+            return isAsset ? s_AssetLabelStyle : s_HierarchyLabelStyle;
+        }
+
+        private static GUIStyle CreateRedLabelStyle(bool isAsset)
+        {
+            return new GUIStyle(GUI.skin.label)
             {
                 normal = { textColor = Color.red },
-                padding = new RectOffset
-                {
-                    left = isAsset ? 21 : 18,
-                    right = 2,
-                    top = isAsset ? 1 : 0,
-                    bottom = 1
-                }
+                padding = new RectOffset(isAsset ? 21 : 18, 2, isAsset ? 1 : 0, 1)
             };
-
-            EditorGUI.LabelField(selectionRect, labelName, textStyle);
         }
     }
 }

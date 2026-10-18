@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -6,6 +5,7 @@ using UnityEngine;
 using UnityEngine.TestTools;
 using UnityEngine.SceneManagement;
 using UValidation.Editor;
+using static UValidation.Tests.ValidationTestUtility;
 
 namespace UValidation.Tests
 {
@@ -29,7 +29,7 @@ namespace UValidation.Tests
             UValidationProjectSettings.Instance.BlockInvalidSaves = false;
             AssetDatabase.DeleteAsset(k_TestFolderPath);
             AssetDatabase.CreateFolder("Assets", k_TestFolderName);
-            m_OpenedBaseScene = OpenSavedSceneIfUntitled();
+            m_OpenedBaseScene = OpenSavedSceneIfUntitled(k_BaseScenePath);
         }
 
         [TearDown]
@@ -122,14 +122,6 @@ namespace UValidation.Tests
             SceneManager.MoveGameObjectToScene(root, scene);
         }
 
-        private static Regex CreateValidationErrorPattern(string contextName)
-        {
-            return new Regex(
-                @"(?s)\[Validation\] String is null or empty!.*" +
-                $@" - Context: {Regex.Escape(contextName)}\r?\n.*" +
-                @" - Variable: m_Value");
-        }
-
         private static void CloseSceneIfLoaded(string path)
         {
             var scene = EditorSceneManager.GetSceneByPath(path);
@@ -139,20 +131,5 @@ namespace UValidation.Tests
             }
         }
 
-        private static bool OpenSavedSceneIfUntitled()
-        {
-            // Unity refuses to create additive scenes while an untitled scene is loaded, which is how EditMode runs start.
-            for (var i = 0; i < SceneManager.sceneCount; i++)
-            {
-                if (string.IsNullOrEmpty(SceneManager.GetSceneAt(i).path))
-                {
-                    var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                    Assert.IsTrue(EditorSceneManager.SaveScene(scene, k_BaseScenePath));
-                    return true;
-                }
-            }
-
-            return false;
-        }
     }
 }

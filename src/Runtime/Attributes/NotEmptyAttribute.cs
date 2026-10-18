@@ -1,6 +1,5 @@
 using System;
 using System.Runtime.CompilerServices;
-using UnityEngine;
 
 namespace UValidation
 {
@@ -8,25 +7,18 @@ namespace UValidation
     /// Specifies that a serialized string, array, or list must not be empty.
     /// </summary>
     [AttributeUsage(AttributeTargets.Field)]
-    public class NotEmptyAttribute : PropertyAttribute
+    public class NotEmptyAttribute : ValidationPropertyAttribute
     {
         /// <summary>
-        /// The path of the file where the attribute is used.
+        /// Initializes a new instance of the <see cref="NotEmptyAttribute"/> class.
         /// </summary>
-        public readonly string FilePath;
-
-        /// <summary>
-        /// The line of code at which the attribute is used.
-        /// </summary>
-        public readonly int LineNumber;
-
+        /// <param name="filePath"> The source file containing the annotated field. </param>
+        /// <param name="lineNumber"> The source line containing the annotated field. </param>
         public NotEmptyAttribute(
             [CallerFilePath] string filePath = "",
             [CallerLineNumber] int lineNumber = 0)
-            : base(true)
+            : base(filePath, lineNumber, true)
         {
-            FilePath = filePath;
-            LineNumber = lineNumber;
         }
     }
 }

@@ -1,6 +1,5 @@
 using System.Collections;
 using System.IO;
-using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -8,6 +7,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UValidation.Editor;
+using static UValidation.Tests.ValidationTestUtility;
 
 namespace UValidation.Tests
 {
@@ -35,39 +35,48 @@ namespace UValidation.Tests
         [UnityTearDown]
         public IEnumerator TearDown()
         {
-            StageUtility.GoToMainStage();
-            yield return null;
+            try
+            {
+                StageUtility.GoToMainStage();
+                yield return null;
 
-            UValidationProjectSettings.Instance.BlockInvalidSaves = false;
-            EditorSceneManager.ClosePreviewScene(m_PreviewScene);
-            AssetDatabase.DeleteAsset(k_TestFolderPath);
+                UValidationProjectSettings.Instance.BlockInvalidSaves = false;
+                if (m_PreviewScene.IsValid())
+                {
+                    EditorSceneManager.ClosePreviewScene(m_PreviewScene);
+                }
 
-            AssetValidator.PromptOnBlockedSave = true;
-            UValidationProjectSettings.Instance.BlockInvalidSaves = m_BlockInvalidSaves;
+                AssetDatabase.DeleteAsset(k_TestFolderPath);
+            }
+            finally
+            {
+                AssetValidator.PromptOnBlockedSave = true;
+                UValidationProjectSettings.Instance.BlockInvalidSaves = m_BlockInvalidSaves;
+            }
         }
 
-        [Test]
-        public void InvalidEditOnPrefabAsset_SaveAssets_IsBlocked()
+        [UnityTest]
+        public IEnumerator InvalidEditOnPrefabAsset_SaveAssets_IsReportedAfterImport()
         {
             var path = CreatePrefab("EditedAsset", k_ValidValue);
-            var savedContents = ReadFile(path);
             var probe = AssetDatabase.LoadAssetAtPath<GameObject>(path).GetComponent<PrefabValidationProbe>();
             probe.SetValue(string.Empty);
             EditorUtility.SetDirty(probe);
             UValidationProjectSettings.Instance.BlockInvalidSaves = true;
 
             LogAssert.Expect(LogType.Error, CreateValidationErrorPattern("EditedAsset"));
+            LogAssert.Expect(LogType.Error, CreateSavedAssetFailurePattern("EditedAsset", ".prefab"));
             AssetDatabase.SaveAssets();
+            yield return null;
 
-            Assert.AreEqual(savedContents, ReadFile(path));
+            Assert.IsFalse(ValidationHelper.IsPrefabValidAtPath(path, false));
             LogAssert.NoUnexpectedReceived();
         }
 
-        [Test]
-        public void InvalidEditOnPrefabAsset_SavePrefabAsset_IsBlocked()
+        [UnityTest]
+        public IEnumerator InvalidEditOnPrefabAsset_SavePrefabAsset_IsReportedAfterImport()
         {
             var path = CreatePrefab("SavedAsset", k_ValidValue);
-            var savedContents = ReadFile(path);
             var prefabRoot = AssetDatabase.LoadAssetAtPath<GameObject>(path);
             var probe = prefabRoot.GetComponent<PrefabValidationProbe>();
             probe.SetValue(string.Empty);
@@ -75,10 +84,11 @@ namespace UValidation.Tests
             UValidationProjectSettings.Instance.BlockInvalidSaves = true;
 
             LogAssert.Expect(LogType.Error, CreateValidationErrorPattern("SavedAsset"));
-            LogAssert.Expect(LogType.Log, new Regex("Prefab not saved due to OnWillSaveAssets callback"));
+            LogAssert.Expect(LogType.Error, CreateSavedAssetFailurePattern("SavedAsset", ".prefab"));
             PrefabUtility.SavePrefabAsset(prefabRoot);
+            yield return null;
 
-            Assert.AreEqual(savedContents, ReadFile(path));
+            Assert.IsFalse(ValidationHelper.IsPrefabValidAtPath(path, false));
             LogAssert.NoUnexpectedReceived();
         }
 
@@ -90,7 +100,7 @@ namespace UValidation.Tests
             UValidationProjectSettings.Instance.BlockInvalidSaves = true;
 
             LogAssert.Expect(LogType.Error, CreateValidationErrorPattern("Overwritten"));
-            LogAssert.Expect(LogType.Error, CreateSavedAssetFailurePattern("Overwritten"));
+            LogAssert.Expect(LogType.Error, CreateSavedAssetFailurePattern("Overwritten", ".prefab"));
             PrefabUtility.SaveAsPrefabAsset(source, path);
             yield return null;
 
@@ -106,7 +116,7 @@ namespace UValidation.Tests
             UValidationProjectSettings.Instance.BlockInvalidSaves = true;
 
             LogAssert.Expect(LogType.Error, CreateValidationErrorPattern("Applied"));
-            LogAssert.Expect(LogType.Error, CreateSavedAssetFailurePattern("Applied"));
+            LogAssert.Expect(LogType.Error, CreateSavedAssetFailurePattern("Applied", ".prefab"));
             PrefabUtility.ApplyPrefabInstance(instance, InteractionMode.AutomatedAction);
             yield return null;
 
@@ -125,6 +135,29 @@ namespace UValidation.Tests
             yield return null;
 
             Assert.IsTrue(ValidationHelper.IsPrefabValidAtPath(path, false));
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [UnityTest]
+        public IEnumerator SaveAsPrefabAsset_ValidContentsOverDirtyInvalidPrefab_IsSaved()
+        {
+            var path = CreatePrefab("DirtyTarget", k_ValidValue);
+            var loadedProbe = AssetDatabase.LoadAssetAtPath<GameObject>(path).GetComponent<PrefabValidationProbe>();
+            loadedProbe.SetValue(string.Empty);
+            EditorUtility.SetDirty(loadedProbe);
+            var source = CreateProbeObject("DirtyTarget", k_ValidValue);
+            UValidationProjectSettings.Instance.BlockInvalidSaves = true;
+
+            PrefabUtility.SaveAsPrefabAsset(source, path);
+            yield return null;
+
+            Assert.IsFalse(
+                ValidationHelper.IsPrefabValidAtPath(path, false),
+                "The deliberately dirty loaded object should remain invalid.");
+            Assert.AreEqual(
+                AssetValidationState.Valid,
+                ValidationHelper.ValidateImportedAssetAtPath(path, false),
+                "The separately written prefab contents should be valid.");
             LogAssert.NoUnexpectedReceived();
         }
 
@@ -150,7 +183,7 @@ namespace UValidation.Tests
             UValidationProjectSettings.Instance.BlockInvalidSaves = true;
 
             LogAssert.Expect(LogType.Error, CreateValidationErrorPattern("Created"));
-            LogAssert.Expect(LogType.Error, CreateNewAssetFailurePattern("Created"));
+            LogAssert.Expect(LogType.Error, CreateNewAssetFailurePattern("Created", ".prefab"));
             var prefab = PrefabUtility.SaveAsPrefabAsset(source, path);
             yield return null;
 
@@ -167,7 +200,7 @@ namespace UValidation.Tests
             UValidationProjectSettings.Instance.BlockInvalidSaves = true;
 
             LogAssert.Expect(LogType.Error, CreateValidationErrorPattern("Dragged"));
-            LogAssert.Expect(LogType.Error, CreateNewAssetFailurePattern("Dragged"));
+            LogAssert.Expect(LogType.Error, CreateNewAssetFailurePattern("Dragged", ".prefab"));
             var prefab = PrefabUtility.SaveAsPrefabAssetAndConnect(source, path, InteractionMode.UserAction);
             yield return null;
 
@@ -184,7 +217,7 @@ namespace UValidation.Tests
             UValidationProjectSettings.Instance.BlockInvalidSaves = true;
 
             LogAssert.Expect(LogType.Error, CreateValidationErrorPattern("Configured"));
-            LogAssert.Expect(LogType.Error, CreateNewAssetFailurePattern("Configured"));
+            LogAssert.Expect(LogType.Error, CreateNewAssetFailurePattern("Configured", ".prefab"));
             PrefabUtility.SaveAsPrefabAsset(source, path);
             yield return null;
 
@@ -198,6 +231,19 @@ namespace UValidation.Tests
 
             Assert.IsTrue(ValidationHelper.IsPrefabValidAtPath(path, false));
             LogAssert.NoUnexpectedReceived();
+        }
+
+        [UnityTest]
+        public IEnumerator PendingValidation_WithoutImport_Expires()
+        {
+            var path = CreatePrefab("Canceled", k_ValidValue);
+
+            PendingAssetValidation.Queue(path);
+            Assert.IsTrue(PendingAssetValidation.Contains(path));
+            yield return null;
+            yield return null;
+
+            Assert.IsFalse(PendingAssetValidation.Contains(path));
         }
 
         private string CreatePrefab(string name, string value)
@@ -235,32 +281,5 @@ namespace UValidation.Tests
             return instance;
         }
 
-        private static string ReadFile(string assetPath)
-        {
-            return File.ReadAllText(GetAbsolutePath(assetPath));
-        }
-
-        private static string GetAbsolutePath(string assetPath)
-        {
-            return Path.Combine(Path.GetDirectoryName(Application.dataPath), assetPath);
-        }
-
-        private static Regex CreateValidationErrorPattern(string contextName)
-        {
-            return new Regex(
-                @"(?s)\[Validation\] String is null or empty!.*" +
-                $@" - Context: {Regex.Escape(contextName)}\r?\n.*" +
-                @" - Variable: m_Value");
-        }
-
-        private static Regex CreateSavedAssetFailurePattern(string prefabName)
-        {
-            return new Regex($@"UValidation found invalid data in '.*/{Regex.Escape(prefabName)}\.prefab' after Unity saved it");
-        }
-
-        private static Regex CreateNewAssetFailurePattern(string prefabName)
-        {
-            return new Regex($@"UValidation found invalid data in newly created asset '.*/{Regex.Escape(prefabName)}\.prefab'");
-        }
     }
 }

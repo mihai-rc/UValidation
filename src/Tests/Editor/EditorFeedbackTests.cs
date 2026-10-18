@@ -85,6 +85,56 @@ namespace UValidation.Tests
         }
 
         [Test]
+        public void ProjectFeedback_SupportsEveryValidatedAssetType()
+        {
+            Assert.IsTrue(ValidationFailureEditorHandler.IsSupportedProjectAssetPath("Assets/Test.unity"));
+            Assert.IsTrue(ValidationFailureEditorHandler.IsSupportedProjectAssetPath("Assets/Test.prefab"));
+            Assert.IsTrue(ValidationFailureEditorHandler.IsSupportedProjectAssetPath("Assets/Test.asset"));
+            Assert.IsFalse(ValidationFailureEditorHandler.IsSupportedProjectAssetPath("Assets/Test.mat"));
+        }
+
+        [Test]
+        public void AssetCache_InvalidStoredPrefab_IsInvalid()
+        {
+            var path = $"{k_TestFolderPath}/Invalid.prefab";
+            var source = CreateProbeObject("Invalid", string.Empty);
+            try
+            {
+                PrefabUtility.SaveAsPrefabAsset(source, path);
+            }
+            finally
+            {
+                Object.DestroyImmediate(source);
+            }
+
+            ValidationResultCache.Clear();
+
+            Assert.IsFalse(ValidationResultCache.IsAssetValid(path));
+        }
+
+        [Test]
+        public void DrawerValidation_MultiSelectionChecksEveryTarget()
+        {
+            var valid = CreateScriptableObject(k_ValidValue);
+            var invalid = CreateScriptableObject(string.Empty);
+            try
+            {
+                using var serializedTargets = new SerializedObject(new Object[] { valid, invalid });
+                var property = serializedTargets.FindProperty("m_Value");
+
+                Assert.IsNotNull(property);
+                Assert.IsFalse(FieldDrawerHelper.EveryTargetPasses(
+                    property,
+                    targetProperty => !string.IsNullOrEmpty(targetProperty.stringValue)));
+            }
+            finally
+            {
+                Object.DestroyImmediate(valid);
+                Object.DestroyImmediate(invalid);
+            }
+        }
+
+        [Test]
         public void Cache_KeepsResultUntilCleared()
         {
             var gameObject = CreateProbeObject("Cached", k_ValidValue);
@@ -123,6 +173,38 @@ namespace UValidation.Tests
             finally
             {
                 Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator Cache_RecordedPropertyChange_PreservesUnchangedObjectResults()
+        {
+            var edited = CreateProbeObject("Edited", k_ValidValue);
+            var unchanged = CreateProbeObject("Unchanged", k_ValidValue);
+            try
+            {
+                yield return null;
+                Assert.IsTrue(ValidationResultCache.IsObjectValid(edited));
+                Assert.IsTrue(ValidationResultCache.IsObjectValid(unchanged));
+
+                // Change this object without publishing an editor event so its cached result remains observable.
+                unchanged.GetComponent<PrefabValidationProbe>().SetValue(string.Empty);
+
+                var serializedProbe = new SerializedObject(edited.GetComponent<PrefabValidationProbe>());
+                serializedProbe.FindProperty("m_Value").stringValue = "Edited value";
+                serializedProbe.ApplyModifiedProperties();
+                yield return null;
+
+                Assert.IsTrue(ValidationResultCache.IsObjectValid(edited));
+                Assert.IsTrue(ValidationResultCache.IsObjectValid(unchanged));
+
+                ValidationResultCache.Clear();
+                Assert.IsFalse(ValidationResultCache.IsObjectValid(unchanged));
+            }
+            finally
+            {
+                Object.DestroyImmediate(edited);
+                Object.DestroyImmediate(unchanged);
             }
         }
 

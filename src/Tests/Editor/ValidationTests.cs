@@ -292,6 +292,10 @@ namespace UValidation.Tests
                 SerializedFieldsValidator.ValidateAttributes(host, validation);
 
                 Assert.IsTrue(validation.Failed);
+                LogAssert.Expect(LogType.Error, new Regex(@" - Variable: m_Vectors\r?\n"));
+                LogAssert.Expect(LogType.Error, new Regex(@" - Variable: m_Curves\r?\n"));
+                LogAssert.Expect(LogType.Error, new Regex(@" - Variable: m_Lighting\r?\n"));
+                validation.Report();
                 LogAssert.NoUnexpectedReceived();
             }
             finally

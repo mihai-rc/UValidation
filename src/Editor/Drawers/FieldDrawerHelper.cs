@@ -28,7 +28,7 @@ namespace UValidation.Editor
             var container = new VisualElement();
             var helpBox = new HelpBox { style = { marginBottom = k_MessageSpacing } };
             var propertyField = new PropertyField(property);
-            var target = property.serializedObject.targetObject;
+            var targets = property.serializedObject.targetObjects;
             var propertyPath = property.propertyPath;
             container.style.flexGrow = 1.0f;
             container.style.alignSelf = Align.Stretch;
@@ -48,10 +48,10 @@ namespace UValidation.Editor
                 RefreshMessage(helpBox, changedProperty, attributeName, allowedTypeDescription, violationMessage,
                     usageValidationFn, propertyValidationFn);
                 propertyField.schedule.Execute(() => RefreshElementIcons(
-                    propertyField, target, propertyPath, violationMessage, elementValidationFn));
+                    propertyField, targets, propertyPath, violationMessage, elementValidationFn));
             });
             propertyField.RegisterCallback<GeometryChangedEvent>(_ => RefreshElementIcons(
-                propertyField, target, propertyPath, violationMessage, elementValidationFn));
+                propertyField, targets, propertyPath, violationMessage, elementValidationFn));
             return container;
         }
 
@@ -139,6 +139,46 @@ namespace UValidation.Editor
             return true;
         }
 
+        /// <summary>
+        /// Evaluates the same property independently on every selected target.
+        /// </summary>
+        /// <param name="property"> The multi-object property being drawn. </param>
+        /// <param name="validationFn"> Validation to run on each target's property. </param>
+        /// <returns> True when every selected target passes the validation. </returns>
+        internal static bool EveryTargetPasses(
+            SerializedProperty property,
+            Func<SerializedProperty, bool> validationFn)
+        {
+            if (validationFn == null)
+            {
+                return true;
+            }
+
+            var serializedObject = property.serializedObject;
+            if (!serializedObject.isEditingMultipleObjects)
+            {
+                return validationFn(property);
+            }
+
+            var propertyPath = property.propertyPath;
+            foreach (var target in serializedObject.targetObjects)
+            {
+                if (target == null)
+                {
+                    continue;
+                }
+
+                using var targetObject = new SerializedObject(target);
+                var targetProperty = targetObject.FindProperty(propertyPath);
+                if (targetProperty == null || !validationFn(targetProperty))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         private static void RefreshMessage(
             HelpBox helpBox,
             SerializedProperty property,
@@ -159,17 +199,18 @@ namespace UValidation.Editor
 
         private static void RefreshElementIcons(
             PropertyField collectionField,
-            UnityEngine.Object target,
+            UnityEngine.Object[] targets,
             string propertyPath,
             string violationMessage,
             Func<SerializedProperty, bool> elementValidationFn)
         {
-            if (target == null)
+            var validTargets = Array.FindAll(targets, target => target != null);
+            if (validTargets.Length == 0)
             {
                 return;
             }
 
-            using var serializedObject = new SerializedObject(target);
+            using var serializedObject = new SerializedObject(validTargets);
             var collection = serializedObject.FindProperty(propertyPath);
             if (collection != null)
             {
@@ -202,7 +243,7 @@ namespace UValidation.Editor
                 }
 
                 var icon = elementField.Q<Image>(k_ElementErrorIconName);
-                var isValid = elementValidationFn(element);
+                var isValid = IsElementValidForEveryTarget(collection, i, elementValidationFn);
                 if (isValid)
                 {
                     icon?.RemoveFromHierarchy();
@@ -253,7 +294,7 @@ namespace UValidation.Editor
             for (var i = 0; i < collection.arraySize; i++)
             {
                 var element = collection.GetArrayElementAtIndex(i);
-                if (!elementValidationFn(element))
+                if (!IsElementValidForEveryTarget(collection, i, elementValidationFn))
                 {
                     var iconRect = new Rect(position.x + 14.0f, elementY, 16.0f, 16.0f);
                     GUI.Label(iconRect, new GUIContent(EditorGUIUtility.IconContent(k_ErrorIcon).image, violationMessage));
@@ -286,7 +327,18 @@ namespace UValidation.Editor
             }
 
             messageType = MessageType.Error;
-            return propertyValidationFn?.Invoke(property) ?? true ? null : violationMessage;
+            return EveryTargetPasses(property, propertyValidationFn) ? null : violationMessage;
+        }
+
+        private static bool IsElementValidForEveryTarget(
+            SerializedProperty collection,
+            int index,
+            Func<SerializedProperty, bool> elementValidationFn)
+        {
+            return EveryTargetPasses(
+                collection,
+                targetCollection => index < targetCollection.arraySize &&
+                                    elementValidationFn(targetCollection.GetArrayElementAtIndex(index)));
         }
 
         private static float GetMessageHeight(float width, string message)
