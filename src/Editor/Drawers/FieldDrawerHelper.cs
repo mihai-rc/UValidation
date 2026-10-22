@@ -1,5 +1,6 @@
 using System;
 using UnityEditor;
+using UnityEditorInternal;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -13,9 +14,66 @@ namespace UValidation.Editor
     {
         private const string k_ElementErrorIconName = "validation-element-error-icon";
         private const string k_ErrorIcon = "d_console.erroricon.sml";
-        private const float k_MinimumMessageHeight = 40.0f;
         private const float k_MessageSpacing = 2.0f;
         private const string k_WarningMessage = "[{0}] is only valid on {1} fields. Field '{2}' has type '{3}'.";
+        private static readonly GUIContent s_ElementTooltipContent = new();
+
+        private sealed class ImguiCollectionElementDrawer
+        {
+            private readonly ReorderableList m_List;
+
+            internal ImguiCollectionElementDrawer(ReorderableList list)
+            {
+                m_List = list;
+            }
+
+            internal string ViolationMessage { get; set; }
+
+            internal Func<SerializedProperty, bool> Validation { get; set; }
+
+            internal void Draw(Rect elementRect, int index, bool isActive, bool isFocused)
+            {
+                var collection = m_List.serializedProperty;
+                if (collection == null || index < 0 || index >= collection.arraySize)
+                {
+                    return;
+                }
+
+                var element = collection.GetArrayElementAtIndex(index);
+                var isInvalid = !IsElementValidForEveryTarget(collection, index, Validation);
+                var labelWidth = EditorGuiCompatibility.GetCollectionElementLabelWidth(
+                    elementRect,
+                    element);
+                var fieldRect = GetCollectionElementFieldRect(
+                    elementRect,
+                    isInvalid,
+                    out var iconRect);
+
+                if (isInvalid)
+                {
+                    if (Event.current.type == EventType.Repaint)
+                    {
+                        var icon = EditorGUIUtility.IconContent(k_ErrorIcon).image;
+                        GUI.DrawTexture(iconRect, icon, ScaleMode.ScaleToFit, true);
+                    }
+
+                    s_ElementTooltipContent.text = string.Empty;
+                    s_ElementTooltipContent.tooltip = ViolationMessage;
+                    GUI.Label(iconRect, s_ElementTooltipContent, GUIStyle.none);
+                }
+
+                var previousLabelWidth = EditorGUIUtility.labelWidth;
+                EditorGUIUtility.labelWidth = labelWidth;
+                try
+                {
+                    EditorGUI.PropertyField(fieldRect, element, true);
+                }
+                finally
+                {
+                    EditorGUIUtility.labelWidth = previousLabelWidth;
+                }
+            }
+        }
 
         internal static VisualElement CreatePropertyGUI(
             SerializedProperty property,
@@ -31,13 +89,17 @@ namespace UValidation.Editor
             {
                 style =
                 {
-                    minHeight = k_MinimumMessageHeight,
+                    minHeight = ValidationMessageGui.MinimumHeight,
                     marginBottom = k_MessageSpacing
                 }
             };
             var propertyField = new PropertyField(property);
             var targets = property.serializedObject.targetObjects;
             var propertyPath = property.propertyPath;
+            elementValidationFn = GetApplicableElementValidation(
+                property,
+                usageValidationFn,
+                elementValidationFn);
 
             container.style.flexGrow = 1.0f;
             container.style.alignSelf = Align.Stretch;
@@ -56,6 +118,8 @@ namespace UValidation.Editor
                 violationMessage,
                 usageValidationFn,
                 propertyValidationFn);
+
+            ConfigureHelpBoxContent(helpBox);
 
             RefreshElementIcons(propertyField, property, violationMessage, elementValidationFn);
 
@@ -107,16 +171,35 @@ namespace UValidation.Editor
                 propertyValidationFn,
                 out var messageType);
 
+            elementValidationFn = GetApplicableElementValidation(
+                property,
+                usageValidationFn,
+                elementValidationFn);
+
             if (message != null)
             {
-                var messageHeight = GetMessageHeight(position.width, message);
-                EditorGUI.HelpBox(new Rect(position.x, position.y, position.width, messageHeight), message, messageType);
+                var propertyHeight = EditorGUI.GetPropertyHeight(property, label, true);
+                var messageHeight = Mathf.Max(
+                    ValidationMessageGui.MinimumHeight,
+                    position.height - propertyHeight - k_MessageSpacing);
+                ValidationMessageGui.DrawHelpBox(
+                    new Rect(position.x, position.y, position.width, messageHeight),
+                    message,
+                    messageType);
                 position.y += messageHeight + k_MessageSpacing;
-                position.height -= messageHeight + k_MessageSpacing;
+                position.height = propertyHeight;
             }
 
+            var listConfigured = ConfigureImguiCollectionElements(
+                property,
+                violationMessage,
+                elementValidationFn);
             EditorGUI.PropertyField(position, property, label, true);
-            DrawElementIcons(position, property, violationMessage, elementValidationFn);
+            if (!listConfigured)
+            {
+                ConfigureImguiCollectionElements(property, violationMessage, elementValidationFn);
+            }
+
             EditorGUI.EndProperty();
         }
 
@@ -127,9 +210,16 @@ namespace UValidation.Editor
             string allowedTypeDescription,
             string violationMessage,
             Func<SerializedProperty, bool> usageValidationFn,
-            Func<SerializedProperty, bool> propertyValidationFn)
+            Func<SerializedProperty, bool> propertyValidationFn,
+            Func<SerializedProperty, bool> elementValidationFn = null)
         {
             var propertyHeight = EditorGUI.GetPropertyHeight(property, label, true);
+            elementValidationFn = GetApplicableElementValidation(
+                property,
+                usageValidationFn,
+                elementValidationFn);
+            ConfigureImguiCollectionElements(property, violationMessage, elementValidationFn);
+
             var message = GetMessage(property,
                 attributeName,
                 allowedTypeDescription,
@@ -140,7 +230,9 @@ namespace UValidation.Editor
 
             return message == null
                 ? propertyHeight
-                : propertyHeight + GetMessageHeight(EditorGUIUtility.currentViewWidth, message) + k_MessageSpacing;
+                : propertyHeight +
+                  ValidationMessageGui.GetHelpBoxHeight(EditorGUIUtility.currentViewWidth, message) +
+                  k_MessageSpacing;
         }
 
         internal static bool IsCollection(SerializedProperty property)
@@ -244,6 +336,26 @@ namespace UValidation.Editor
                 : HelpBoxMessageType.Error;
         }
 
+        private static void ConfigureHelpBoxContent(HelpBox helpBox)
+        {
+            helpBox.style.alignItems = Align.Center;
+
+            var icon = helpBox.Q(className: HelpBox.iconUssClassName);
+            if (icon != null)
+            {
+                icon.style.width = ValidationMessageGui.IconSize;
+                icon.style.height = ValidationMessageGui.IconSize;
+                icon.style.flexShrink = 0.0f;
+                icon.style.alignSelf = Align.Center;
+            }
+
+            var label = helpBox.Q(className: HelpBox.labelUssClassName);
+            if (label != null)
+            {
+                label.style.alignSelf = Align.Center;
+            }
+        }
+
         private static void RefreshElementIcons(
             PropertyField collectionField,
             UnityEngine.Object[] targets,
@@ -332,29 +444,78 @@ namespace UValidation.Editor
             }
         }
 
-        private static void DrawElementIcons(
-            Rect position,
+        private static bool ConfigureImguiCollectionElements(
             SerializedProperty collection,
             string violationMessage,
             Func<SerializedProperty, bool> elementValidationFn)
         {
-            if (elementValidationFn == null || !collection.isExpanded || !IsCollection(collection))
+            if (!IsCollection(collection))
             {
-                return;
+                return false;
             }
 
-            var elementY = position.y + EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
-            for (var i = 0; i < collection.arraySize; i++)
+            var list = ReorderableList.GetReorderableListFromSerializedProperty(collection);
+            if (list == null)
             {
-                var element = collection.GetArrayElementAtIndex(i);
-                if (!IsElementValidForEveryTarget(collection, i, elementValidationFn))
+                return false;
+            }
+
+            if (elementValidationFn == null)
+            {
+                if (list.drawElementCallback?.Target is ImguiCollectionElementDrawer)
                 {
-                    var iconRect = new Rect(position.x + 14.0f, elementY, 16.0f, 16.0f);
-                    GUI.Label(iconRect, new GUIContent(EditorGUIUtility.IconContent(k_ErrorIcon).image, violationMessage));
+                    list.drawElementCallback = null;
                 }
 
-                elementY += EditorGUI.GetPropertyHeight(element, true) + EditorGUIUtility.standardVerticalSpacing;
+                return true;
             }
+
+            if (list.drawElementCallback?.Target is ImguiCollectionElementDrawer drawer)
+            {
+                drawer.ViolationMessage = violationMessage;
+                drawer.Validation = elementValidationFn;
+                return true;
+            }
+
+            drawer = new ImguiCollectionElementDrawer(list)
+            {
+                ViolationMessage = violationMessage,
+                Validation = elementValidationFn
+            };
+            list.drawElementCallback = drawer.Draw;
+
+            return true;
+        }
+
+        /// <summary>
+        /// Gets the field and optional validation-icon rectangles for a collection element row.
+        /// </summary>
+        /// <param name="elementRect"> The content rectangle supplied by Unity's reorderable list. </param>
+        /// <param name="hasError"> Whether the element needs a validation icon. </param>
+        /// <param name="iconRect"> The rectangle reserved for the validation icon. </param>
+        /// <returns> The rectangle in which to draw the element property. </returns>
+        internal static Rect GetCollectionElementFieldRect(
+            Rect elementRect,
+            bool hasError,
+            out Rect iconRect)
+        {
+            const float iconSize = 16.0f;
+            const float iconSpacing = 4.0f;
+
+            elementRect.y += 1.0f;
+            var firstLineHeight = Mathf.Min(EditorGUIUtility.singleLineHeight, elementRect.height);
+            iconRect = new Rect(
+                elementRect.x,
+                elementRect.y + Mathf.Max(0.0f, (firstLineHeight - iconSize) * 0.5f),
+                iconSize,
+                iconSize);
+
+            if (hasError)
+            {
+                elementRect.xMin += iconSize + iconSpacing;
+            }
+
+            return elementRect;
         }
 
         private static string GetMessage(
@@ -397,11 +558,14 @@ namespace UValidation.Editor
                     && elementValidationFn(targetCollection.GetArrayElementAtIndex(index)));
         }
 
-        private static float GetMessageHeight(float width, string message)
+        private static Func<SerializedProperty, bool> GetApplicableElementValidation(
+            SerializedProperty property,
+            Func<SerializedProperty, bool> usageValidationFn,
+            Func<SerializedProperty, bool> elementValidationFn)
         {
-            return Mathf.Max(
-                k_MinimumMessageHeight,
-                EditorStyles.helpBox.CalcHeight(new GUIContent(message), width));
+            return elementValidationFn != null && (usageValidationFn?.Invoke(property) ?? true)
+                ? elementValidationFn
+                : null;
         }
     }
 }

@@ -45,7 +45,8 @@ namespace UValidation.Editor
         /// <inheritdoc />
         protected override bool IsElementValid(SerializedProperty property)
         {
-            return property.objectReferenceValue != null;
+            return property.propertyType == SerializedPropertyType.ObjectReference &&
+                property.objectReferenceValue != null;
         }
     }
 }

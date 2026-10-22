@@ -68,7 +68,8 @@ namespace UValidation.Editor
                 AllowedTypeDescription,
                 ViolationMessage,
                 IsUsageValid,
-                IsPropertyValid);
+                IsPropertyValid,
+                GetElementValidation());
         }
 
         /// <summary>

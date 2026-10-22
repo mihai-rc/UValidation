@@ -90,8 +90,7 @@ namespace UValidation.Editor
             var asset = AssetDatabase.LoadMainAssetAtPath(path);
             if (asset != null)
             {
-                selectionRect.x -= 3;
-                selectionRect.y -= 1;
+                selectionRect = EditorGuiCompatibility.GetProjectWindowLabelRect(selectionRect);
                 DrawRedLabel(selectionRect, asset.name, true);
             }
         }
@@ -130,7 +129,11 @@ namespace UValidation.Editor
             var message = targets.Length == 1
                 ? "Validation Failed: This object contains invalid data."
                 : $"Validation Failed: {invalidCount} of {targets.Length} selected objects contain invalid data.";
-            EditorGUILayout.HelpBox(message, MessageType.Error);
+            var height = ValidationMessageGui.GetHelpBoxHeight(
+                EditorGUIUtility.currentViewWidth,
+                message);
+            var position = EditorGUILayout.GetControlRect(false, height);
+            ValidationMessageGui.DrawHelpBox(position, message, MessageType.Error);
         }
 
         private static void DrawRedLabel(Rect selectionRect, string labelName, bool isAsset)
@@ -155,7 +158,9 @@ namespace UValidation.Editor
             return new GUIStyle(GUI.skin.label)
             {
                 normal = { textColor = Color.red },
-                padding = new RectOffset(isAsset ? 21 : 18, 2, isAsset ? 1 : 0, 1)
+                padding = isAsset
+                    ? EditorGuiCompatibility.CreateProjectWindowLabelPadding()
+                    : new RectOffset(18, 2, 0, 1)
             };
         }
     }
