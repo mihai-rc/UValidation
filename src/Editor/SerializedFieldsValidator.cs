@@ -394,10 +394,12 @@ namespace UValidation.Editor
                 return false;
             }
 
-            // SerializeReference accepts class, abstract-class, interface, and object declarations. For arrays
-            // and lists, the attribute applies to each element, so the declaration itself does not need to be
-            // [Serializable]; Unity requires that attribute on each concrete value assigned at runtime instead.
-            return type == typeof(object) || type.IsInterface || type.IsClass;
+            // A single SerializeReference field may use a nonserializable class declaration as long as the
+            // assigned runtime type is serializable. For arrays and lists, Unity additionally requires a class
+            // element declaration to be [Serializable]; interface and object declarations remain supported.
+            return type == typeof(object) ||
+                   type.IsInterface ||
+                   (type.IsClass && (isFieldType || type.IsDefined(typeof(SerializableAttribute), false)));
         }
 
         private static void ApplyFieldValidation(FieldValidationData data, string fieldName, object value, Validation validation)

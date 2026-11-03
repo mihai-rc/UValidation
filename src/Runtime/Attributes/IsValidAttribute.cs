@@ -9,7 +9,8 @@ namespace UValidation
     /// <remarks>
     /// On a [SerializeReference] field declared as an interface, an abstract class, or object, each value is
     /// validated according to its runtime type. Null objects, null collections, empty collections, and null
-    /// collection elements are skipped.
+    /// collection elements are skipped. Unity requires a class used as the declared element type of a
+    /// [SerializeReference] array or list to have [Serializable].
     /// </remarks>
     [AttributeUsage(AttributeTargets.Field)]
     public class IsValidAttribute : PropertyAttribute

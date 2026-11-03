@@ -70,7 +70,7 @@ namespace UValidation.Editor
             if (UnitySerializedCollectionUtility.IsCollection(fieldType))
             {
                 if (UnitySerializedCollectionUtility.TryGetElementType(fieldType, out var elementType) &&
-                    IsTraversableType(elementType, isManagedReference))
+                    IsTraversableType(elementType, isManagedReference, true))
                 {
                     return IsValidTargetKind.Collection;
                 }
@@ -78,7 +78,7 @@ namespace UValidation.Editor
                 return IsValidTargetKind.Unsupported;
             }
 
-            if (IsTraversableType(fieldType, isManagedReference))
+            if (IsTraversableType(fieldType, isManagedReference, false))
             {
                 return IsValidTargetKind.Object;
             }
@@ -86,7 +86,10 @@ namespace UValidation.Editor
             return IsValidTargetKind.Unsupported;
         }
 
-        private static bool IsTraversableType(Type type, bool isManagedReference)
+        private static bool IsTraversableType(
+            Type type,
+            bool isManagedReference,
+            bool isCollectionElement)
         {
             if (IsSerializableCustomClass(type))
             {
@@ -98,7 +101,8 @@ namespace UValidation.Editor
             return isManagedReference &&
                    (type.IsInterface || type.IsClass) &&
                    type != typeof(string) &&
-                   !typeof(UnityEngine.Object).IsAssignableFrom(type);
+                   !typeof(UnityEngine.Object).IsAssignableFrom(type) &&
+                   (!isCollectionElement || type == typeof(object) || type.IsInterface);
         }
     }
 }

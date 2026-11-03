@@ -132,6 +132,7 @@ namespace UValidation.Tests
             [SerializeReference, IsValid] private List<IRule> m_ManagedInterfaceList;
             [SerializeReference, IsValid] private RuleBase m_ManagedAbstract;
             [SerializeReference, IsValid] private List<RuleBase> m_ManagedAbstractList;
+            [SerializeReference, IsValid] private List<SerializableRuleBase> m_ManagedSerializableAbstractList;
             [SerializeReference, IsValid] private object m_ManagedObject;
         }
 
@@ -141,6 +142,11 @@ namespace UValidation.Tests
 
         // Deliberately not [Serializable]: Unity accepts it as a single [SerializeReference] field type.
         private abstract class RuleBase
+        {
+        }
+
+        [Serializable]
+        private abstract class SerializableRuleBase
         {
         }
 
@@ -155,12 +161,23 @@ namespace UValidation.Tests
             }
         }
 
+        [Serializable]
+        private sealed class SerializableNamedRule : SerializableRuleBase
+        {
+            [SerializeField, NotEmpty] private string m_Name;
+
+            public SerializableNamedRule(string name)
+            {
+                m_Name = name;
+            }
+        }
+
         private sealed class ManagedReferenceHost : MonoBehaviour
         {
             [SerializeReference, IsValid] private IRule m_Interface;
             [SerializeReference, IsValid] private List<IRule> m_InterfaceList;
             [SerializeReference, IsValid] private RuleBase m_Abstract;
-            [SerializeReference, IsValid] private List<RuleBase> m_AbstractList;
+            [SerializeReference, IsValid] private List<SerializableRuleBase> m_AbstractList;
             [SerializeReference, IsValid] private object m_Object;
 
             public void SetAll(string name)
@@ -168,28 +185,28 @@ namespace UValidation.Tests
                 m_Interface = new NamedRule(name);
                 m_InterfaceList = new List<IRule> { new NamedRule(name) };
                 m_Abstract = new NamedRule(name);
-                m_AbstractList = new List<RuleBase> { new NamedRule(name) };
+                m_AbstractList = new List<SerializableRuleBase> { new SerializableNamedRule(name) };
                 m_Object = new NamedRule(name);
             }
 
-            public void Set(string fieldName, NamedRule rule)
+            public void Set(string fieldName, string name)
             {
                 switch (fieldName)
                 {
                     case nameof(m_Interface):
-                        m_Interface = rule;
+                        m_Interface = new NamedRule(name);
                         break;
                     case nameof(m_InterfaceList):
-                        m_InterfaceList = new List<IRule> { rule };
+                        m_InterfaceList = new List<IRule> { new NamedRule(name) };
                         break;
                     case nameof(m_Abstract):
-                        m_Abstract = rule;
+                        m_Abstract = new NamedRule(name);
                         break;
                     case nameof(m_AbstractList):
-                        m_AbstractList = new List<RuleBase> { rule };
+                        m_AbstractList = new List<SerializableRuleBase> { new SerializableNamedRule(name) };
                         break;
                     case nameof(m_Object):
-                        m_Object = rule;
+                        m_Object = new NamedRule(name);
                         break;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(fieldName), fieldName, null);
@@ -207,6 +224,11 @@ namespace UValidation.Tests
         private sealed class ManagedDictionaryListHost : MonoBehaviour
         {
             [SerializeReference, IsValid] private List<Dictionary<string, NamedRule>> m_Rules = new();
+        }
+
+        private sealed class NonSerializableManagedClassCollectionHost : MonoBehaviour
+        {
+            [SerializeReference, IsValid] private List<RuleBase> m_Rules = new();
         }
 #pragma warning restore UAC1014
 
@@ -413,7 +435,8 @@ namespace UValidation.Tests
         [TestCase("m_ManagedInterface", nameof(IsValidTargetKind.Object))]
         [TestCase("m_ManagedInterfaceList", nameof(IsValidTargetKind.Collection))]
         [TestCase("m_ManagedAbstract", nameof(IsValidTargetKind.Object))]
-        [TestCase("m_ManagedAbstractList", nameof(IsValidTargetKind.Collection))]
+        [TestCase("m_ManagedAbstractList", nameof(IsValidTargetKind.Unsupported))]
+        [TestCase("m_ManagedSerializableAbstractList", nameof(IsValidTargetKind.Collection))]
         [TestCase("m_ManagedObject", nameof(IsValidTargetKind.Object))]
         public void IsValid_TargetClassification_MatchesSupportedContract(string fieldName, string expected)
         {
@@ -436,7 +459,7 @@ namespace UValidation.Tests
             try
             {
                 var host = gameObject.AddComponent<ManagedReferenceHost>();
-                host.Set(fieldName, new NamedRule(string.Empty));
+                host.Set(fieldName, string.Empty);
 
                 using var validation = Validate(host);
                 Assert.IsTrue(validation.Failed);
@@ -497,6 +520,30 @@ namespace UValidation.Tests
                 SerializedFieldsValidator.ResetReportedNonSerializedFields();
 
                 LogAssert.Expect(LogType.Warning, new Regex(@"nonserialized field '.*ManagedDictionaryListHost\.m_Rules' are ignored"));
+                using var validation = Validate(host);
+                Assert.IsTrue(validation.Passed);
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [Test]
+        public void IsValid_ManagedReferenceClassListWithoutSerializableDeclaration_IsReportedAsNonserialized()
+        {
+            var gameObject = new GameObject(nameof(NonSerializableManagedClassCollectionHost));
+            try
+            {
+                var host = gameObject.AddComponent<NonSerializableManagedClassCollectionHost>();
+                using var serializedObject = new SerializedObject(host);
+                Assert.IsNull(serializedObject.FindProperty("m_Rules"));
+                SerializedFieldsValidator.ResetReportedNonSerializedFields();
+
+                LogAssert.Expect(
+                    LogType.Warning,
+                    new Regex(@"nonserialized field '.*NonSerializableManagedClassCollectionHost\.m_Rules' are ignored"));
                 using var validation = Validate(host);
                 Assert.IsTrue(validation.Passed);
                 LogAssert.NoUnexpectedReceived();

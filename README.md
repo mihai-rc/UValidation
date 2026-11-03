@@ -26,6 +26,10 @@ or `object`, and on arrays and lists of them. Each value is validated according 
 [SerializeReference, IsValid] private List<IRule> m_Rules = new();
 ```
 
+For a `[SerializeReference]` array or list declared with a class element type, Unity also requires
+that declared class to have `[Serializable]`. Interface and `object` collection declarations do not
+require it, but every concrete value assigned at runtime must still be serializable.
+
 Every annotated field inside each object is validated recursively. Collection failures include the
 element index, such as `m_Items[2].m_Name`. Custom `IValidatable` failures receive the same prefix.
 If an `IValidatable` implementation throws while invoked by UValidation, the exception is captured
