@@ -129,7 +129,7 @@ namespace UValidation.Tests
                 320.0f,
                 "Validation Failed: This object contains invalid data.");
 
-            Assert.GreaterOrEqual(height, 48.0f);
+            Assert.GreaterOrEqual(height, 40.0f);
         }
 
         [Test]

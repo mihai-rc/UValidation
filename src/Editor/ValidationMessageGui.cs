@@ -10,14 +10,14 @@ namespace UValidation.Editor
     {
         private const float k_HorizontalPadding = 8.0f;
         private const float k_IconSpacing = 8.0f;
-        private const float k_VerticalPadding = 8.0f;
+        private const float k_VerticalPadding = 4.0f;
 
         private static GUIStyle s_MessageTextStyle;
         private static bool s_StyleUsesProSkin;
 
         internal const int FontSize = 12;
         internal const float IconSize = 32.0f;
-        internal const float MinimumHeight = 48.0f;
+        internal const float MinimumHeight = 40.0f;
 
         /// <summary>
         /// Draws a validation HelpBox with readable IMGUI text and a full-size severity icon.

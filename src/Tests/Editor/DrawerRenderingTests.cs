@@ -19,7 +19,7 @@ namespace UValidation.Tests
         private const string k_ValidValue = "Configured";
         private const string k_ViolationMessage = "The value must not be empty.";
         private const float k_MessageIconSize = 32.0f;
-        private const float k_MinimumMessageHeight = 48.0f;
+        private const float k_MinimumMessageHeight = 40.0f;
 
         private static readonly Type[] s_RegisteredDrawerTypes =
         {
@@ -80,6 +80,7 @@ namespace UValidation.Tests
                 var root = CreateUiToolkitDrawer(serializedObject.FindProperty("m_Value"));
                 var helpBox = root.Q<HelpBox>();
                 var icon = helpBox.Q(className: HelpBox.iconUssClassName);
+                var propertyField = root.Q<PropertyField>();
 
                 window.Configure(root);
                 window.position = new Rect(0.0f, 0.0f, 360.0f, 240.0f);
@@ -101,6 +102,8 @@ namespace UValidation.Tests
                 var iconCenter = icon.worldBound.center.y;
                 var rowCenter = helpBox.worldBound.center.y;
                 Assert.AreEqual(rowCenter, iconCenter, 0.5f);
+                Assert.AreEqual(propertyField.worldBound.xMin, helpBox.worldBound.xMin, 0.5f);
+                Assert.AreEqual(propertyField.worldBound.xMax, helpBox.worldBound.xMax, 0.5f);
             }
             finally
             {

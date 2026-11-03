@@ -339,6 +339,9 @@ namespace UValidation.Editor
         private static void ConfigureHelpBoxContent(HelpBox helpBox)
         {
             helpBox.style.alignItems = Align.Center;
+            helpBox.style.width = Length.Percent(100.0f);
+            helpBox.style.marginLeft = 0.0f;
+            helpBox.style.marginRight = 0.0f;
 
             var icon = helpBox.Q(className: HelpBox.iconUssClassName);
             if (icon != null)
