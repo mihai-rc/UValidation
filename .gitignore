@@ -37,6 +37,18 @@
 /UValidationSandbox/.vscode/
 /UValidationSandbox/.idea/
 
+# Local AI coding assistants
+/.claude/
+/.codex/
+/.cursor/
+/.windsurf/
+/.continue/
+/.cline/
+/.roo/
+/.aider/
+/.gemini/
+/.agents/
+
 # Gradle cache directory
 /UValidationSandbox/.gradle/
 
