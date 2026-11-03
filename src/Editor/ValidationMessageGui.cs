@@ -82,15 +82,16 @@ namespace UValidation.Editor
             }).image;
         }
 
-        private static GUIStyle GetMessageTextStyle()
+        /// <summary>
+        /// Gets the theme-aware style used for IMGUI validation-message text.
+        /// </summary>
+        /// <returns> The current Editor label style with validation-message layout settings. </returns>
+        internal static GUIStyle GetMessageTextStyle()
         {
             if (s_MessageTextStyle == null || s_StyleUsesProSkin != EditorGUIUtility.isProSkin)
             {
                 s_StyleUsesProSkin = EditorGUIUtility.isProSkin;
-                var sourceStyle = EditorGUIUtility.GetBuiltinSkin(EditorSkin.Inspector)?.label;
-                s_MessageTextStyle = sourceStyle != null
-                    ? new GUIStyle(sourceStyle)
-                    : new GUIStyle();
+                s_MessageTextStyle = new GUIStyle(EditorStyles.label);
                 s_MessageTextStyle.alignment = TextAnchor.MiddleLeft;
                 s_MessageTextStyle.fontSize = FontSize;
                 s_MessageTextStyle.padding = new RectOffset();

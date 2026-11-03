@@ -353,6 +353,7 @@ namespace UValidation.Editor
             if (label != null)
             {
                 label.style.alignSelf = Align.Center;
+                label.style.fontSize = ValidationMessageGui.FontSize;
             }
         }
 

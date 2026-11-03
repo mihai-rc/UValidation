@@ -52,6 +52,10 @@ namespace UValidation.Tests
                 Assert.AreEqual(k_MessageIconSize, icon.style.width.value.value);
                 Assert.AreEqual(k_MessageIconSize, icon.style.height.value.value);
                 Assert.AreEqual(Align.Center, icon.style.alignSelf.value);
+
+                var messageLabel = helpBox.Q<Label>(className: HelpBox.labelUssClassName);
+                Assert.IsNotNull(messageLabel);
+                Assert.AreEqual(ValidationMessageGui.FontSize, messageLabel.style.fontSize.value.value);
                 Assert.IsNotNull(root.Q<PropertyField>());
             }
             finally
@@ -209,6 +213,14 @@ namespace UValidation.Tests
             Assert.LessOrEqual(iconRect.yMax, helpBoxRect.yMax);
             Assert.Greater(textRect.xMin, iconRect.xMax);
             Assert.LessOrEqual(textRect.xMax, helpBoxRect.xMax);
+        }
+
+        [Test]
+        public void Imgui_MessageText_UsesCurrentEditorThemeColor()
+        {
+            var style = ValidationMessageGui.GetMessageTextStyle();
+
+            Assert.AreEqual(EditorStyles.label.normal.textColor, style.normal.textColor);
         }
 
         [Test]
