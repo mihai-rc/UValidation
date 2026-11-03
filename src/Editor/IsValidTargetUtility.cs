@@ -42,16 +42,17 @@ namespace UValidation.Editor
         }
 
         /// <summary>
-        /// Determines whether a type is a custom serializable class supported by recursive validation.
+        /// Determines whether a type is a custom serializable class or struct supported by recursive validation.
         /// </summary>
         /// <param name="type"> The type to inspect. </param>
         /// <returns> Whether the type is supported. </returns>
-        internal static bool IsSerializableCustomClass(Type type)
+        internal static bool IsSerializableCustomType(Type type)
         {
             return type != null &&
-                   type.IsClass &&
+                   (type.IsClass || IsSerializableCustomStruct(type)) &&
                    type != typeof(string) &&
                    !typeof(UnityEngine.Object).IsAssignableFrom(type) &&
+                   !SerializedFieldsValidator.IsUnitySerializableBuiltInType(type) &&
                    type.IsDefined(typeof(SerializableAttribute), false);
         }
 
@@ -91,7 +92,7 @@ namespace UValidation.Editor
             bool isManagedReference,
             bool isCollectionElement)
         {
-            if (IsSerializableCustomClass(type))
+            if (IsSerializableCustomType(type))
             {
                 return true;
             }
@@ -103,6 +104,13 @@ namespace UValidation.Editor
                    type != typeof(string) &&
                    !typeof(UnityEngine.Object).IsAssignableFrom(type) &&
                    (!isCollectionElement || type == typeof(object) || type.IsInterface);
+        }
+
+        private static bool IsSerializableCustomStruct(Type type)
+        {
+            return type.IsValueType &&
+                   !type.IsPrimitive &&
+                   !type.IsEnum;
         }
     }
 }

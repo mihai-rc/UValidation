@@ -4,8 +4,8 @@ Inspector and runtime content validation for Unity.
 
 ## Recursive validation
 
-Use `[IsValid]` on an inline custom serializable class, or on an array or `List<T>` whose element
-type is a custom serializable class:
+Use `[IsValid]` on an inline custom serializable class or struct, or on an array or `List<T>` whose
+element type is a custom serializable class or struct:
 
 ```csharp
 [Serializable]

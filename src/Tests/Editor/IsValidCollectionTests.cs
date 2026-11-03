@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.TestTools;
 using UValidation.Editor;
@@ -38,6 +39,34 @@ namespace UValidation.Tests
             public void Validate(Validation validation)
             {
                 validation.IsTrue(nameof(m_Value), this, data => data.m_Value > 0);
+            }
+        }
+
+        [Serializable]
+        private struct StructData
+        {
+            [SerializeField, NotEmpty] private string m_Name;
+
+            public StructData(string name)
+            {
+                m_Name = name;
+            }
+        }
+
+        [Serializable]
+        private struct StructRuleData : IValidatable
+        {
+            [SerializeField] private int m_Value;
+
+            public StructRuleData(int value)
+            {
+                m_Value = value;
+            }
+
+            /// <inheritdoc />
+            public void Validate(Validation validation)
+            {
+                validation.IsTrue(nameof(m_Value), m_Value > 0);
             }
         }
 
@@ -89,6 +118,28 @@ namespace UValidation.Tests
             }
         }
 
+        private sealed class StructHost : MonoBehaviour
+        {
+            [SerializeField, IsValid] private StructData m_Data = new("Valid");
+            [SerializeField, IsValid] private List<StructData> m_Items = new() { new("Valid") };
+            [SerializeField, IsValid] private StructRuleData m_Rule = new(1);
+
+            public void SetData(StructData data)
+            {
+                m_Data = data;
+            }
+
+            public void SetItems(List<StructData> items)
+            {
+                m_Items = items;
+            }
+
+            public void SetRule(StructRuleData rule)
+            {
+                m_Rule = rule;
+            }
+        }
+
         private sealed class RuleListHost : MonoBehaviour
         {
             [SerializeField, IsValid] private List<RuleData> m_Items;
@@ -124,6 +175,10 @@ namespace UValidation.Tests
             [SerializeField, IsValid] private ItemData m_Object;
             [SerializeField, IsValid] private ItemData[] m_Array;
             [SerializeField, IsValid] private List<ItemData> m_List;
+            [SerializeField, IsValid] private StructData m_Struct;
+            [SerializeField, IsValid] private List<StructData> m_StructList;
+            [SerializeField, IsValid] private Vector3 m_UnityStruct;
+            [SerializeField, IsValid] private AnimationCurve m_UnityClass;
             [SerializeField, IsValid] private int m_Integer;
             [SerializeField, IsValid] private GameObject m_UnityObject;
             [SerializeField, IsValid] private List<int> m_IntegerList;
@@ -289,6 +344,67 @@ namespace UValidation.Tests
         }
 
         [Test]
+        public void IsValid_SerializableStruct_ReportsNestedFieldPath()
+        {
+            var gameObject = new GameObject(nameof(StructHost));
+            try
+            {
+                var host = gameObject.AddComponent<StructHost>();
+                host.SetData(new StructData(string.Empty));
+                using var serializedObject = new SerializedObject(host);
+                Assert.IsNotNull(serializedObject.FindProperty("m_Data"));
+
+                using var validation = Validate(host);
+                Assert.IsTrue(validation.Failed);
+                ExpectFailure(validation, @"m_Data\.m_Name");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [Test]
+        public void IsValid_SerializableStructList_ReportsIndexedFieldPath()
+        {
+            var gameObject = new GameObject(nameof(StructHost));
+            try
+            {
+                var host = gameObject.AddComponent<StructHost>();
+                host.SetItems(new List<StructData> { new("Valid"), new(string.Empty) });
+                using var serializedObject = new SerializedObject(host);
+                Assert.IsNotNull(serializedObject.FindProperty("m_Items"));
+
+                using var validation = Validate(host);
+                Assert.IsTrue(validation.Failed);
+                ExpectFailure(validation, @"m_Items\[1\]\.m_Name");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [Test]
+        public void IsValid_SerializableStruct_RunsCustomValidation()
+        {
+            var gameObject = new GameObject(nameof(StructHost));
+            try
+            {
+                var host = gameObject.AddComponent<StructHost>();
+                host.SetRule(new StructRuleData(0));
+
+                using var validation = Validate(host);
+                Assert.IsTrue(validation.Failed);
+                ExpectFailure(validation, @"m_Rule\.m_Value");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [Test]
         public void IsValid_NullAndEmptyCollections_Pass()
         {
             var gameObject = new GameObject(nameof(ListHost));
@@ -428,6 +544,10 @@ namespace UValidation.Tests
         [TestCase("m_Object", nameof(IsValidTargetKind.Object))]
         [TestCase("m_Array", nameof(IsValidTargetKind.Collection))]
         [TestCase("m_List", nameof(IsValidTargetKind.Collection))]
+        [TestCase("m_Struct", nameof(IsValidTargetKind.Object))]
+        [TestCase("m_StructList", nameof(IsValidTargetKind.Collection))]
+        [TestCase("m_UnityStruct", nameof(IsValidTargetKind.Unsupported))]
+        [TestCase("m_UnityClass", nameof(IsValidTargetKind.Unsupported))]
         [TestCase("m_Integer", nameof(IsValidTargetKind.Unsupported))]
         [TestCase("m_UnityObject", nameof(IsValidTargetKind.Unsupported))]
         [TestCase("m_IntegerList", nameof(IsValidTargetKind.Unsupported))]

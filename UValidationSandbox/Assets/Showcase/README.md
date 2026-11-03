@@ -83,9 +83,9 @@ expected errors.
 
 - Empty collections pass `HasNoNulls` and `HasNoEmpties`; those attributes validate elements,
   not collection size. Combine them with `NotEmpty` when both guarantees are required.
-- `IsValid` traverses a custom serializable class or every existing element of an array or list of
-  that type. Null and empty collections pass, and null elements are skipped. Inline serialized
-  class values are normally materialized by Unity with default field values.
+- `IsValid` traverses a custom serializable class or struct, or every existing element of an array
+  or list of such types. Null and empty collections pass, and null elements are skipped. Inline
+  serialized values are normally materialized by Unity with default field values.
 - Collection validation failures include their index, for example `m_Items[1].m_Name`.
 - Unsupported placements produce Inspector warnings when a property drawer can inspect them.
   Some unsupported placements are runtime no-ops; they are included to make that behavior visible.

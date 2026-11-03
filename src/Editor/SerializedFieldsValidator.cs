@@ -166,7 +166,7 @@ namespace UValidation.Editor
             }
 
             var type = nestedObj.GetType();
-            if (!IsValidTargetUtility.IsSerializableCustomClass(type))
+            if (!IsValidTargetUtility.IsSerializableCustomType(type))
             {
                 return;
             }
@@ -353,7 +353,12 @@ namespace UValidation.Editor
             return type.IsDefined(typeof(SerializableAttribute), false);
         }
 
-        private static bool IsUnitySerializableBuiltInType(Type type)
+        /// <summary>
+        /// Gets whether Unity serializes a built-in value or reference type as a native leaf value.
+        /// </summary>
+        /// <param name="type"> The type to inspect. </param>
+        /// <returns> Whether the type is a recognized Unity serialization leaf. </returns>
+        internal static bool IsUnitySerializableBuiltInType(Type type)
         {
             if (s_UnitySerializableValueTypes.Contains(type))
             {
