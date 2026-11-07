@@ -22,7 +22,12 @@ namespace UValidation.Editor
         /// <summary>
         /// The target is an array or list of custom-serializable objects or managed references.
         /// </summary>
-        Collection
+        Collection,
+
+        /// <summary>
+        /// The target is a dictionary whose values are custom-serializable objects.
+        /// </summary>
+        DictionaryValues
     }
 
     /// <summary>
@@ -68,6 +73,13 @@ namespace UValidation.Editor
         /// </remarks>
         private static IsValidTargetKind Classify(Type fieldType, bool isManagedReference)
         {
+            if (UnitySerializedCollectionUtility.TryGetDictionaryTypes(fieldType, out _, out var valueType))
+            {
+                return !isManagedReference && IsTraversableType(valueType, false, false)
+                    ? IsValidTargetKind.DictionaryValues
+                    : IsValidTargetKind.Unsupported;
+            }
+
             if (UnitySerializedCollectionUtility.IsCollection(fieldType))
             {
                 if (UnitySerializedCollectionUtility.TryGetElementType(fieldType, out var elementType) &&

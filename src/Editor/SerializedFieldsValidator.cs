@@ -3,7 +3,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using UnityEditor;
 using UnityEngine;
+using UnityEngine.Pool;
 
 namespace UValidation.Editor
 {
@@ -111,6 +113,54 @@ namespace UValidation.Editor
             s_ReportedNonSerializedFields.Clear();
         }
 
+        /// <summary>
+        /// Validates the nested value represented by an <see cref="IsValidAttribute"/> property without
+        /// constructing report strings. Property drawers use this aggregate result for their field-level message.
+        /// </summary>
+        /// <param name="property"> The serialized property decorated with <see cref="IsValidAttribute"/>. </param>
+        /// <param name="targetKind"> How the property's nested values should be traversed. </param>
+        /// <returns> Whether every nested value represented by the property is valid. </returns>
+        internal static bool IsNestedSerializedPropertyValid(
+            SerializedProperty property,
+            IsValidTargetKind targetKind)
+        {
+            if (property == null || targetKind == IsValidTargetKind.Unsupported)
+            {
+                return true;
+            }
+
+            var context = property.serializedObject.targetObject;
+            using var validation = new Validation(context, false);
+            var traversalState = new ValidationTraversalState(context);
+
+            switch (targetKind)
+            {
+                case IsValidTargetKind.Object:
+                    ValidateNestedSerializedObject(
+                        property,
+                        property.propertyPath,
+                        validation,
+                        traversalState);
+                    break;
+                case IsValidTargetKind.Collection:
+                    for (var i = 0; i < property.arraySize; i++)
+                    {
+                        ValidateNestedSerializedObject(
+                            property.GetArrayElementAtIndex(i),
+                            $"{property.propertyPath}[{i}]",
+                            validation,
+                            traversalState);
+                    }
+
+                    break;
+                case IsValidTargetKind.DictionaryValues:
+                    ValidateNestedSerializedDictionaryValues(property, validation, traversalState);
+                    break;
+            }
+
+            return validation.Passed;
+        }
+
         private static void ValidateObjectFields(
             object target,
             string objectPath,
@@ -186,6 +236,72 @@ namespace UValidation.Editor
             }
         }
 
+        private static void ValidateNestedSerializedObject(
+            SerializedProperty property,
+            string propertyPath,
+            Validation validation,
+            ValidationTraversalState traversalState)
+        {
+            if (property == null)
+            {
+                validation.IsTrue(propertyPath, false, string.Empty, string.Empty, 0);
+                return;
+            }
+
+            object value;
+            try
+            {
+                value = property.propertyType == SerializedPropertyType.ManagedReference
+                    ? property.managedReferenceValue
+                    : property.boxedValue;
+            }
+            catch (InvalidOperationException)
+            {
+                validation.IsTrue(propertyPath, false, string.Empty, string.Empty, 0);
+                return;
+            }
+
+            if (value != null)
+            {
+                ValidateNestedObject(value, propertyPath, validation, traversalState);
+            }
+        }
+
+        private static void ValidateNestedSerializedDictionaryValues(
+            SerializedProperty dictionary,
+            Validation validation,
+            ValidationTraversalState traversalState)
+        {
+#if UNITY_6000_6_OR_NEWER
+            var ignoredEntries = dictionary.GetDictionaryIgnoredEntries();
+            var ignoredIndices = HashSetPool<int>.Get();
+            try
+            {
+                ignoredIndices.UnionWith(ignoredEntries.duplicateEntryIndices);
+                ignoredIndices.UnionWith(ignoredEntries.nullKeyEntryIndices);
+
+                for (var i = 0; i < dictionary.arraySize; i++)
+                {
+                    if (ignoredIndices.Contains(i))
+                    {
+                        continue;
+                    }
+
+                    var entry = dictionary.GetArrayElementAtIndex(i);
+                    ValidateNestedSerializedObject(
+                        entry.FindPropertyRelative("value"),
+                        $"{dictionary.propertyPath}[{i}].Value",
+                        validation,
+                        traversalState);
+                }
+            }
+            finally
+            {
+                HashSetPool<int>.Release(ignoredIndices);
+            }
+#endif
+        }
+
         private static void RunCustomValidation(IValidatable validatable, string objectPath, Validation validation)
         {
             using var pathScope = validation.PushVariablePath(objectPath);
@@ -214,6 +330,26 @@ namespace UValidation.Editor
             if (targetKind == IsValidTargetKind.Object)
             {
                 ValidateNestedObject(value, fieldName, validation, traversalState);
+                return;
+            }
+
+            if (targetKind == IsValidTargetKind.DictionaryValues && value is IDictionary dictionary)
+            {
+                var dictionaryIndex = 0;
+                foreach (DictionaryEntry entry in dictionary)
+                {
+                    if (entry.Value != null)
+                    {
+                        ValidateNestedObject(
+                            entry.Value,
+                            $"{fieldName}[{dictionaryIndex}].Value",
+                            validation,
+                            traversalState);
+                    }
+
+                    dictionaryIndex++;
+                }
+
                 return;
             }
 
@@ -287,10 +423,22 @@ namespace UValidation.Editor
                 field.IsDefined(typeof(SerializeField), true) ||
                 field.IsDefined(typeof(SerializeReference), true);
 
-            return !field.IsStatic &&
-                   !field.IsLiteral &&
-                   !field.IsInitOnly &&
-                   !field.IsNotSerialized &&
+            var isEligibleField = !field.IsStatic &&
+                                  !field.IsLiteral &&
+                                  !field.IsInitOnly &&
+                                  !field.IsNotSerialized;
+
+            if (UnitySerializedCollectionUtility.IsDictionary(field.FieldType))
+            {
+                // Native dictionary serialization is opt-in even for public fields, and dictionaries are
+                // inline entry collections rather than managed-reference fields.
+                return isEligibleField &&
+                       field.IsDefined(typeof(SerializeField), true) &&
+                       !field.IsDefined(typeof(SerializeReference), true) &&
+                       IsSupportedSerializedType(field);
+            }
+
+            return isEligibleField &&
                    (field.IsPublic || hasSerializationAttribute) &&
                    IsSupportedSerializedType(field);
         }
@@ -339,6 +487,13 @@ namespace UValidation.Editor
                        IsSupportedInlineType(elementType, false);
             }
 
+            if (UnitySerializedCollectionUtility.TryGetDictionaryTypes(type, out var keyType, out var valueType))
+            {
+                return allowContainer &&
+                       IsSupportedDictionaryKeyType(keyType) &&
+                       IsSupportedInlineType(valueType, true);
+            }
+
             if (type.IsInterface ||
                 type.IsAbstract ||
                 type.IsGenericTypeDefinition ||
@@ -351,6 +506,18 @@ namespace UValidation.Editor
             }
 
             return type.IsDefined(typeof(SerializableAttribute), false);
+        }
+
+        private static bool IsSupportedDictionaryKeyType(Type type)
+        {
+            if (type != typeof(string) &&
+                !typeof(UnityEngine.Object).IsAssignableFrom(type) &&
+                typeof(IEnumerable).IsAssignableFrom(type))
+            {
+                return false;
+            }
+
+            return IsSupportedInlineType(type, false);
         }
 
         /// <summary>
@@ -410,6 +577,10 @@ namespace UValidation.Editor
         private static void ApplyFieldValidation(FieldValidationData data, string fieldName, object value, Validation validation)
         {
             var fieldType = data.Field.FieldType;
+            var isDictionary = UnitySerializedCollectionUtility.IsDictionary(fieldType);
+            var dictionary = isDictionary
+                ? value as IDictionary
+                : null;
 
             if (data.NotNull != null && ValidationAttributeTargetUtility.SupportsNotNull(fieldType))
             {
@@ -423,6 +594,15 @@ namespace UValidation.Editor
                 if (fieldType == typeof(string))
                 {
                     validation.IsNotEmpty(fieldName, (string)value, attr.FilePath, null, attr.LineNumber);
+                }
+                else if (isDictionary)
+                {
+                    validation.IsNotEmpty(
+                        fieldName,
+                        dictionary,
+                        attr.FilePath,
+                        null,
+                        attr.LineNumber);
                 }
                 else if (typeof(IEnumerable).IsAssignableFrom(fieldType))
                 {
@@ -440,7 +620,7 @@ namespace UValidation.Editor
                 var attr = data.HasNoNulls;
                 validation.HasNoNulls(
                     fieldName,
-                    (IEnumerable)value,
+                    dictionary?.Values ?? (IEnumerable)value,
                     attr.FilePath,
                     null,
                     attr.LineNumber);
@@ -449,7 +629,12 @@ namespace UValidation.Editor
             if (data.HasNoEmpties != null && ValidationAttributeTargetUtility.SupportsHasNoEmpties(fieldType))
             {
                 var attr = data.HasNoEmpties;
-                validation.HasNoEmpties(fieldName, (IEnumerable<string>)value, attr.FilePath, null, attr.LineNumber);
+                validation.HasNoEmpties(
+                    fieldName,
+                    dictionary?.Values ?? (IEnumerable)value,
+                    attr.FilePath,
+                    null,
+                    attr.LineNumber);
             }
         }
 

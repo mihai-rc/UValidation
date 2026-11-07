@@ -25,6 +25,7 @@ namespace UValidation.Editor
         internal static bool SupportsNotEmpty(Type fieldType)
         {
             return fieldType == typeof(string) ||
+                   UnitySerializedCollectionUtility.IsDictionary(fieldType) ||
                    UnitySerializedCollectionUtility.TryGetElementType(fieldType, out _);
         }
 
@@ -35,6 +36,11 @@ namespace UValidation.Editor
         /// <returns> Whether the attribute supports the field type. </returns>
         internal static bool SupportsHasNoNulls(Type fieldType)
         {
+            if (UnitySerializedCollectionUtility.TryGetDictionaryTypes(fieldType, out _, out var valueType))
+            {
+                return typeof(UnityEngine.Object).IsAssignableFrom(valueType);
+            }
+
             return UnitySerializedCollectionUtility.TryGetElementType(fieldType, out var elementType) &&
                    typeof(UnityEngine.Object).IsAssignableFrom(elementType);
         }
@@ -46,6 +52,11 @@ namespace UValidation.Editor
         /// <returns> Whether the attribute supports the field type. </returns>
         internal static bool SupportsHasNoEmpties(Type fieldType)
         {
+            if (UnitySerializedCollectionUtility.TryGetDictionaryTypes(fieldType, out _, out var valueType))
+            {
+                return valueType == typeof(string);
+            }
+
             return UnitySerializedCollectionUtility.TryGetElementType(fieldType, out var elementType) &&
                    elementType == typeof(string);
         }

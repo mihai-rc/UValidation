@@ -19,6 +19,45 @@ namespace UValidation.Editor
         }
 
         /// <summary>
+        /// Gets whether a type is an exact <see cref="Dictionary{TKey,TValue}"/> supported by Unity's
+        /// built-in dictionary serializer.
+        /// </summary>
+        /// <param name="type"> The type to inspect. </param>
+        /// <returns> Whether the type is a serialized dictionary container in this Unity version. </returns>
+        internal static bool IsDictionary(Type type)
+        {
+#if UNITY_6000_6_OR_NEWER
+            return type != null &&
+                   type.IsGenericType &&
+                   type.GetGenericTypeDefinition() == typeof(Dictionary<,>);
+#else
+            return false;
+#endif
+        }
+
+        /// <summary>
+        /// Gets the key and value types of a dictionary supported by Unity's built-in serializer.
+        /// </summary>
+        /// <param name="type"> The type to inspect. </param>
+        /// <param name="keyType"> The dictionary key type when supported. </param>
+        /// <param name="valueType"> The dictionary value type when supported. </param>
+        /// <returns> Whether the type is a supported dictionary container in this Unity version. </returns>
+        internal static bool TryGetDictionaryTypes(Type type, out Type keyType, out Type valueType)
+        {
+            keyType = null;
+            valueType = null;
+            if (!IsDictionary(type))
+            {
+                return false;
+            }
+
+            var arguments = type.GetGenericArguments();
+            keyType = arguments[0];
+            valueType = arguments[1];
+            return true;
+        }
+
+        /// <summary>
         /// Gets the element type of a supported one-dimensional array or concrete. <see cref="List{T}"/>.
         /// </summary>
         /// <param name="type"> The collection type to inspect. </param>

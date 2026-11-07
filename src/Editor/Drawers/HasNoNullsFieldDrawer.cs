@@ -7,8 +7,9 @@ namespace UValidation.Editor
     /// Displays an error message above a collection containing null object references.
     /// </summary>
     /// <remarks>
-    /// This drawer only operates on array/list fields. For single object reference fields use
-    /// <see cref="NotNullFieldDrawer"/> (via <see cref="NotNullAttribute"/>) instead.
+    /// This drawer operates on array/list fields and, in Unity 6.6+, on supported dictionary values. For a
+    /// single object reference field use <see cref="NotNullFieldDrawer"/> (via
+    /// <see cref="NotNullAttribute"/>) instead.
     /// </remarks>
     [CustomPropertyDrawer(typeof(HasNoNullsAttribute))]
     internal class HasNoNullsFieldDrawer : ValidationFieldDrawer
@@ -39,7 +40,9 @@ namespace UValidation.Editor
         /// <inheritdoc />
         protected override bool IsPropertyValid(SerializedProperty property)
         {
-            return FieldDrawerHelper.HasNoNullObjectReferences(property);
+            return UnitySerializedCollectionUtility.IsDictionary(fieldInfo.FieldType)
+                ? FieldDrawerHelper.HasNoNullDictionaryValues(property)
+                : FieldDrawerHelper.HasNoNullObjectReferences(property);
         }
 
         /// <inheritdoc />

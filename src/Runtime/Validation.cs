@@ -59,6 +59,7 @@ namespace UValidation
         private const string k_ExceptionTag = " - Exception: {0}";
 
         private readonly UnityEngine.Object m_Context;
+        private readonly bool m_RecordReasons;
         private List<string> m_Reasons;
         private StringBuilder m_ErrorBuilder;
         private string m_VariablePath;
@@ -94,8 +95,19 @@ namespace UValidation
         /// </summary>
         /// <param name="context"> The Unity object in the context which the validation happens. </param>
         public Validation(UnityEngine.Object context = null)
+            : this(context, true)
+        {
+        }
+
+        /// <summary>
+        /// Creates a validation context that can skip diagnostic-string construction when only the result is needed.
+        /// </summary>
+        /// <param name="context"> The Unity object in the context which the validation happens. </param>
+        /// <param name="recordReasons"> Whether failed checks should retain reportable diagnostic messages. </param>
+        internal Validation(UnityEngine.Object context, bool recordReasons)
         {
             m_Context = context;
+            m_RecordReasons = recordReasons;
             m_Reasons = null;
             m_ErrorBuilder = null;
             m_VariablePath = null;
@@ -486,6 +498,42 @@ namespace UValidation
         }
 
         /// <summary>
+        /// Checks whether a reflected collection contains no null or empty string items.
+        /// </summary>
+        /// <param name="variable"> The name of the collection being validated. </param>
+        /// <param name="values"> The reflected collection being validated. </param>
+        /// <param name="file"> The path to the source field declaration. </param>
+        /// <param name="function"> The name of the function that performs the validation. </param>
+        /// <param name="line"> The line of the source field declaration. </param>
+        /// <returns> The validation instance for continued fluent chaining. </returns>
+        internal Validation HasNoEmpties(
+            string variable,
+            IEnumerable values,
+            string file,
+            string function,
+            int line)
+        {
+            ThrowIfDisposed();
+
+            if (values != null)
+            {
+                foreach (var value in values)
+                {
+                    if (value is not string stringValue || string.IsNullOrEmpty(stringValue))
+                    {
+                        Fail(k_CollectionWithEmptyStrings, variable, file, function, line);
+                        return this;
+                    }
+                }
+
+                return this;
+            }
+
+            Fail(k_CollectionWithEmptyStrings, variable, file, function, line);
+            return this;
+        }
+
+        /// <summary>
         /// Checks whether a reflected collection is not null or empty.
         /// </summary>
         /// <param name="variable"> The name of the collection being validated. </param>
@@ -594,6 +642,12 @@ namespace UValidation
 
         private void Fail(string reason, string variable, string file, string function, int line, string exception = null)
         {
+            m_Failed = true;
+            if (!m_RecordReasons)
+            {
+                return;
+            }
+
             m_Reasons ??= ListPool<string>.Get();
             m_ErrorBuilder ??= new StringBuilder();
             m_ErrorBuilder.Clear();
@@ -627,7 +681,6 @@ namespace UValidation
             }
 
             m_Reasons.Add(m_ErrorBuilder.ToString());
-            m_Failed = true;
         }
 
         private string QualifyVariable(string variable)

@@ -7,8 +7,9 @@ namespace UValidation.Editor
     /// Displays an error message above a collection containing null or empty strings.
     /// </summary>
     /// <remarks>
-    /// This drawer only operates on array/list fields whose elements are strings. For single string fields
-    /// use <see cref="NotEmptyFieldDrawer"/> (via <see cref="NotEmptyAttribute"/>) instead.
+    /// This drawer operates on array/list fields whose elements are strings and, in Unity 6.6+, on supported
+    /// dictionary string values. For a single string field use <see cref="NotEmptyFieldDrawer"/> (via
+    /// <see cref="NotEmptyAttribute"/>) instead.
     /// </remarks>
     [CustomPropertyDrawer(typeof(HasNoEmptiesAttribute))]
     internal class HasNoEmptiesFieldDrawer : ValidationFieldDrawer
@@ -39,7 +40,9 @@ namespace UValidation.Editor
         /// <inheritdoc />
         protected override bool IsPropertyValid(SerializedProperty property)
         {
-            return FieldDrawerHelper.HasNoEmptyStrings(property);
+            return UnitySerializedCollectionUtility.IsDictionary(fieldInfo.FieldType)
+                ? FieldDrawerHelper.HasNoEmptyDictionaryValues(property)
+                : FieldDrawerHelper.HasNoEmptyStrings(property);
         }
 
         /// <inheritdoc />

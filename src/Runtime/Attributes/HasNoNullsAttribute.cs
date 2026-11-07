@@ -4,7 +4,8 @@ using System.Runtime.CompilerServices;
 namespace UValidation
 {
     /// <summary>
-    /// Specifies that a serialized array or list of Unity object references must not contain null items.
+    /// Specifies that a serialized array/list of Unity object references, or a supported dictionary with
+    /// Unity object values, must not contain null values.
     /// </summary>
     [AttributeUsage(AttributeTargets.Field)]
     public class HasNoNullsAttribute : ValidationPropertyAttribute

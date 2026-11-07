@@ -98,7 +98,12 @@ namespace UValidation.Editor
 
         private Func<SerializedProperty, bool> GetElementValidation()
         {
-            return SupportsElementValidation ? IsElementValid : null;
+            // Unity's dictionary editor owns its two-column row layout and its duplicate/null-key icons.
+            // Dictionary validation stays at field level until Unity exposes a stable row-decoration API.
+            return SupportsElementValidation &&
+                   (fieldInfo == null || !UnitySerializedCollectionUtility.IsDictionary(fieldInfo.FieldType))
+                ? IsElementValid
+                : null;
         }
     }
 }

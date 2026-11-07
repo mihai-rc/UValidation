@@ -10,7 +10,7 @@ namespace UValidation.Editor
     internal class IsValidFieldDrawer : ValidationFieldDrawer
     {
         private const string k_AttributeName = nameof(IsValidAttribute);
-        private const string k_AllowedTypeDescription = "custom serializable classes or structs, [SerializeReference] references, or arrays/lists of those";
+        private const string k_AllowedTypeDescription = "custom serializable classes or structs, [SerializeReference] references, arrays/lists of those, or dictionaries with those values";
         private const string k_ViolationMessage = "Nested values must satisfy their validation rules.";
 
         /// <inheritdoc />
@@ -31,7 +31,9 @@ namespace UValidation.Editor
         /// <inheritdoc />
         protected override bool IsPropertyValid(SerializedProperty property)
         {
-            return true;
+            return SerializedFieldsValidator.IsNestedSerializedPropertyValid(
+                property,
+                IsValidTargetUtility.Classify(fieldInfo));
         }
     }
 }

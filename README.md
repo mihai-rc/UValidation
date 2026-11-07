@@ -88,13 +88,32 @@ receives validation feedback in the relevant Editor window.
 | Attribute | Supported serialized fields | Rule |
 | --- | --- | --- |
 | `[NotNull]` | `UnityEngine.Object` references | The reference must be assigned. Destroyed Unity objects count as null. |
-| `[NotEmpty]` | Strings, arrays, and lists | The value must be non-null and contain at least one character or element. |
-| `[HasNoNulls]` | Arrays and lists of `UnityEngine.Object` references | No element may be null or destroyed. An empty collection passes. |
-| `[HasNoEmpties]` | Arrays and lists of strings | No element may be null or empty. An empty collection passes. |
-| `[IsValid]` | Serializable classes, structs, arrays, lists, and supported `[SerializeReference]` values | Recursively validates the nested serialized data. Null objects and null or empty collections are skipped. |
+| `[NotEmpty]` | Strings, arrays, lists, and Unity 6.6+ dictionaries | The value must be non-null and contain at least one character or effective element. |
+| `[HasNoNulls]` | Arrays/lists of `UnityEngine.Object` references and Unity 6.6+ dictionaries with object values | No element or dictionary value may be null or destroyed. An empty collection passes. |
+| `[HasNoEmpties]` | Arrays/lists of strings and Unity 6.6+ dictionaries with string values | No element or dictionary value may be null or empty. An empty collection passes. |
+| `[IsValid]` | Serializable classes, structs, arrays, lists, Unity 6.6+ dictionary values, and supported `[SerializeReference]` values | Recursively validates the nested serialized data. Null objects and null or empty collections are skipped. |
 
 Combine collection attributes when the contract requires more than one guarantee. For example,
 `[NotEmpty, HasNoNulls]` requires at least one element and rejects null elements.
+
+### Serialized dictionaries
+
+On Unity 6.6 and newer, validation attributes support fields declared exactly as
+`Dictionary<TKey, TValue>` and serialized with `[SerializeField]`. Dictionary validation is
+value-oriented: `[HasNoNulls]`, `[HasNoEmpties]`, and `[IsValid]` inspect `TValue`; keys remain
+under Unity's built-in null-key and duplicate-key validation. `[NotEmpty]` counts only entries that
+Unity includes in the live dictionary, so duplicate and null-key placeholder rows do not satisfy it.
+
+```csharp
+[SerializeField, NotEmpty, HasNoNulls]
+private Dictionary<string, GameObject> m_Views = new();
+
+[SerializeField, IsValid]
+private Dictionary<string, ItemData> m_Items = new();
+```
+
+Unity does not serialize public dictionaries implicitly, and `[SerializeReference]` is not valid on
+dictionary fields. Earlier Unity versions continue to treat dictionary fields as nonserialized.
 
 Unsupported attribute placements produce an Inspector warning instead of silently promising a rule
 that Unity cannot serialize or inspect.
@@ -146,8 +165,10 @@ public sealed class ItemData
 [SerializeField, IsValid] private List<ItemData> m_Items = new();
 ```
 
-Every annotated field inside each object is validated recursively. Collection failures include the
-element index, such as `m_Items[2].m_Name`.
+Every annotated field inside each object is validated recursively. An invalid `[IsValid]` target
+shows one summary message above the outer field even while it is collapsed; expand it to see the
+specific nested field messages. Collection failures include the element index, such as
+`m_Items[2].m_Name`.
 
 `[IsValid]` also supports `[SerializeReference]` fields declared as an interface, abstract class, or
 `object`, including arrays and lists. Each assigned value is validated according to its runtime

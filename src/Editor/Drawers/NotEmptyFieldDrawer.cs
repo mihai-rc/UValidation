@@ -32,8 +32,13 @@ namespace UValidation.Editor
         /// <inheritdoc />
         protected override bool IsPropertyValid(SerializedProperty property)
         {
-            return property.propertyType == SerializedPropertyType.String
-                ? !string.IsNullOrEmpty(property.stringValue)
+            if (property.propertyType == SerializedPropertyType.String)
+            {
+                return !string.IsNullOrEmpty(property.stringValue);
+            }
+
+            return UnitySerializedCollectionUtility.IsDictionary(fieldInfo.FieldType)
+                ? FieldDrawerHelper.HasEffectiveDictionaryEntries(property)
                 : property.arraySize > 0;
         }
     }

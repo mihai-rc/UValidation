@@ -3,6 +3,7 @@ using UnityEditor;
 using UnityEditorInternal;
 using UnityEditor.UIElements;
 using UnityEngine;
+using UnityEngine.Pool;
 using UnityEngine.UIElements;
 
 namespace UValidation.Editor
@@ -272,6 +273,57 @@ namespace UValidation.Editor
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Gets whether a serialized dictionary contains at least one entry that Unity includes in the live
+        /// <see cref="System.Collections.Generic.Dictionary{TKey,TValue}"/>.
+        /// </summary>
+        /// <param name="property"> The serialized dictionary property. </param>
+        /// <returns> Whether at least one non-placeholder, non-duplicate entry exists. </returns>
+        internal static bool HasEffectiveDictionaryEntries(SerializedProperty property)
+        {
+#if UNITY_6000_6_OR_NEWER
+            var ignoredEntries = property.GetDictionaryIgnoredEntries();
+            return property.arraySize >
+                   ignoredEntries.duplicateEntryIndices.Length + ignoredEntries.nullKeyEntryIndices.Length;
+#else
+            return false;
+#endif
+        }
+
+        /// <summary>
+        /// Gets whether every effective value in a serialized dictionary is an assigned object reference.
+        /// </summary>
+        /// <param name="property"> The serialized dictionary property. </param>
+        /// <returns> Whether all effective values are assigned. </returns>
+        internal static bool HasNoNullDictionaryValues(SerializedProperty property)
+        {
+#if UNITY_6000_6_OR_NEWER
+            return EveryEffectiveDictionaryValuePasses(
+                property,
+                value => value.propertyType == SerializedPropertyType.ObjectReference &&
+                         value.objectReferenceValue != null);
+#else
+            return false;
+#endif
+        }
+
+        /// <summary>
+        /// Gets whether every effective string value in a serialized dictionary is nonempty.
+        /// </summary>
+        /// <param name="property"> The serialized dictionary property. </param>
+        /// <returns> Whether all effective values contain text. </returns>
+        internal static bool HasNoEmptyDictionaryValues(SerializedProperty property)
+        {
+#if UNITY_6000_6_OR_NEWER
+            return EveryEffectiveDictionaryValuePasses(
+                property,
+                value => value.propertyType == SerializedPropertyType.String &&
+                         !string.IsNullOrEmpty(value.stringValue));
+#else
+            return false;
+#endif
         }
 
         /// <summary>
@@ -585,5 +637,41 @@ namespace UValidation.Editor
                 ? elementValidationFn
                 : null;
         }
+
+#if UNITY_6000_6_OR_NEWER
+        private static bool EveryEffectiveDictionaryValuePasses(
+            SerializedProperty dictionary,
+            Func<SerializedProperty, bool> validationFn)
+        {
+            var ignoredEntries = dictionary.GetDictionaryIgnoredEntries();
+            var ignoredIndices = HashSetPool<int>.Get();
+            try
+            {
+                ignoredIndices.UnionWith(ignoredEntries.duplicateEntryIndices);
+                ignoredIndices.UnionWith(ignoredEntries.nullKeyEntryIndices);
+
+                for (var i = 0; i < dictionary.arraySize; i++)
+                {
+                    if (ignoredIndices.Contains(i))
+                    {
+                        continue;
+                    }
+
+                    var entry = dictionary.GetArrayElementAtIndex(i);
+                    var value = entry.FindPropertyRelative("value");
+                    if (value == null || !validationFn(value))
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+            finally
+            {
+                HashSetPool<int>.Release(ignoredIndices);
+            }
+        }
+#endif
     }
 }

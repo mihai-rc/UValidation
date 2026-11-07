@@ -18,6 +18,22 @@ attribute placements.
 Green/valid values intentionally coexist with red/error and yellow/warning values, so the scene is
 intentionally invalid when editor validation is enabled.
 
+## Serialized dictionaries (Unity 6.6+)
+
+Open `Assets/Scenes/ValidationDictionaryShowcase.unity` to inspect Unity's native two-column
+dictionary editor with UValidation feedback.
+
+1. `NotEmpty` — populated and empty dictionaries, plus serialized null-key placeholder rows that
+   Unity excludes from the live dictionary.
+2. `HasNoNulls` — assigned, missing, and empty Unity object value dictionaries.
+3. `HasNoEmpties` — populated, empty-string, null-string, and empty dictionaries.
+4. `IsValid` — valid, invalid, and empty dictionaries of custom serializable values, plus a
+   primitive-value misuse warning. Invalid values produce one summary message above the dictionary
+   even when the field is collapsed; expanded entries retain their detailed messages.
+
+Dictionary collection rules inspect values only. Unity continues to own null-key and duplicate-key
+diagnostics, and UValidation leaves the native dictionary row UI unchanged.
+
 ## Inheritance chains
 
 Open `Assets/Scenes/ValidationInheritanceShowcase.unity`. Every numbered object has the same
@@ -74,6 +90,9 @@ with deterministic values. The builder selects the valid asset when it finishes.
 Use `UValidation > Rebuild Inheritance Showcase` to regenerate the inheritance scene. Close that
 scene before rebuilding it; the builder preserves the other open scenes.
 
+Use `UValidation > Rebuild Dictionary Showcase` to regenerate the Unity 6.6 dictionary scene. Close
+that scene before rebuilding it; the builder preserves the other open scenes.
+
 These builders deliberately create invalid content. When **Block Invalid Saves** is enabled,
 UValidation reports those failures after the new or replacement assets are imported. Temporarily
 disable that policy under **Project Settings > UValidation** if you want to rebuild without those
@@ -84,11 +103,15 @@ expected errors.
 - Empty collections pass `HasNoNulls` and `HasNoEmpties`; those attributes validate elements,
   not collection size. Combine them with `NotEmpty` when both guarantees are required.
 - `IsValid` traverses a custom serializable class or struct, or every existing element of an array
-  or list of such types. Null and empty collections pass, and null elements are skipped. Inline
-  serialized values are normally materialized by Unity with default field values.
+  or list of such types, or every effective value of a supported dictionary. Null and empty
+  collections pass, and null elements are skipped. Inline serialized values are normally
+  materialized by Unity with default field values.
 - Collection validation failures include their index, for example `m_Items[1].m_Name`.
+- Dictionary value failures include the serialized entry index and value segment, for example
+  `m_Items[1].Value.m_Name`.
 - Unsupported placements produce Inspector warnings when a property drawer can inspect them.
   Some unsupported placements are runtime no-ops; they are included to make that behavior visible.
-- Attribute validation is limited to field types Unity represents in the Inspector: `NotNull` accepts
-  `UnityEngine.Object` references, while `HasNoNulls` accepts arrays and lists of those references.
-  The equivalent fluent rules remain available for broader runtime values and collections.
+- Attribute validation is limited to field types Unity represents in the Inspector: `NotNull`
+  accepts `UnityEngine.Object` references, while `HasNoNulls` accepts arrays/lists of those
+  references and Unity 6.6+ dictionaries whose values are those references. The equivalent fluent
+  rules remain available for broader runtime values and collections.
