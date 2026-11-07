@@ -109,6 +109,9 @@ visible without opening every object. The screenshots below were captured in Uni
 
 ## Attribute reference
 
+Each subsection lists every serialized form supported by that attribute. Collection and nested
+examples are expanded in the screenshots so the failing values remain visible.
+
 ### `[NotNull]`
 
 Use `[NotNull]` for a serialized `UnityEngine.Object` reference that must be assigned, such as a
@@ -124,53 +127,98 @@ fails validation.
 ### `[NotEmpty]`
 
 Use `[NotEmpty]` for a string that must contain text or a collection that must contain at least one
-effective element. Typical examples are identifiers, display names, spawn-point lists, and lookup
-dictionaries that are not useful when empty.
+effective element. It supports strings, arrays, lists, and Unity 6.6+ dictionaries. Typical examples
+are identifiers, display names, spawn-point collections, and lookup dictionaries that are not
+useful when empty.
 
 ```csharp
 [SerializeField, NotEmpty] private string m_Id;
+[SerializeField, NotEmpty] private GameObject[] m_SpawnPoints = Array.Empty<GameObject>();
+[SerializeField, NotEmpty] private List<int> m_WaveIds = new();
+[SerializeField, NotEmpty] private Dictionary<string, GameObject> m_Views = new();
 ```
 
+**Strings, arrays, and lists:**
+
 <img src="docs/images/not-empty-inspector.png" width="411" alt="Unity Inspector showing NotEmpty failures on empty strings and collections">
+
+**Unity 6.6+ dictionaries:**
+
+<img src="docs/images/dictionary-not-empty-inspector.png" width="411" alt="Unity Inspector showing expanded NotEmpty dictionary examples and ignored null-key rows">
 
 ### `[HasNoNulls]`
 
 Use `[HasNoNulls]` when every entry in a collection of `UnityEngine.Object` references must be
-assigned—for example, a list of prefabs that will all be instantiated. Arrays and lists are
-supported, as are Unity 6.6+ dictionaries with object-reference values. Empty collections pass;
-combine this attribute with `[NotEmpty]` when at least one entry is also required.
+assigned—for example, prefabs that will all be instantiated. It supports arrays and lists of object
+references, plus Unity 6.6+ dictionaries with object-reference values. Empty collections pass;
+combine it with `[NotEmpty]` when at least one entry is also required.
 
 ```csharp
-[SerializeField, HasNoNulls] private List<GameObject> m_Prefabs = new();
+[SerializeField, HasNoNulls] private GameObject[] m_Prefabs = Array.Empty<GameObject>();
+[SerializeField, HasNoNulls] private List<Transform> m_Targets = new();
+[SerializeField, HasNoNulls] private Dictionary<string, GameObject> m_Views = new();
 ```
 
+**Arrays and lists:**
+
 <img src="docs/images/has-no-nulls-inspector.png" width="411" alt="Unity Inspector showing a HasNoNulls failure and the null collection element">
+
+**Unity 6.6+ dictionary values:**
+
+<img src="docs/images/dictionary-has-no-nulls-inspector.png" width="411" alt="Unity Inspector showing expanded HasNoNulls dictionary values including a missing object reference">
 
 ### `[HasNoEmpties]`
 
 Use `[HasNoEmpties]` for a collection of strings where every entry must contain text, such as tags,
-localization keys, or item identifiers. Arrays and lists are supported, as are Unity 6.6+
+localization keys, or item identifiers. It supports string arrays and lists, plus Unity 6.6+
 dictionaries with string values. Empty collections pass; add `[NotEmpty]` if the collection itself
 must also contain an entry.
 
 ```csharp
+[SerializeField, HasNoEmpties] private string[] m_Layers = Array.Empty<string>();
 [SerializeField, HasNoEmpties] private List<string> m_Tags = new();
+[SerializeField, HasNoEmpties] private Dictionary<int, string> m_Labels = new();
 ```
 
+**Arrays and lists:**
+
 <img src="docs/images/has-no-empties-inspector.png" width="411" alt="Unity Inspector showing HasNoEmpties failures and an empty string element">
+
+**Unity 6.6+ dictionary values:**
+
+<img src="docs/images/dictionary-has-no-empties-inspector.png" width="411" alt="Unity Inspector showing expanded HasNoEmpties dictionary values including empty and null strings">
 
 ### `[IsValid]`
 
 Use `[IsValid]` for nested serialized configuration whose own attributed fields and custom
-validation rules must pass. It supports serializable classes and structs, their arrays and lists,
-Unity 6.6+ dictionary values, and supported `[SerializeReference]` values. A summary message remains
-visible above a collapsed invalid field so the nested failure is easy to locate.
+validation rules must pass. It supports serializable classes and structs, arrays and lists of those
+types, Unity 6.6+ dictionary values, and individual or collected `[SerializeReference]` values. A
+summary message remains visible above a collapsed invalid field so the nested failure is easy to
+locate.
 
 ```csharp
-[SerializeField, IsValid] private Stats m_Stats = new();
+// Serializable class and struct
+[SerializeField, IsValid] private ItemData m_Item = new();
+[SerializeField, IsValid] private StatsData m_Stats;
+
+// Arrays, lists, and Unity 6.6+ dictionaries of serializable values
+[SerializeField, IsValid] private ItemData[] m_Items = Array.Empty<ItemData>();
+[SerializeField, IsValid] private List<ItemData> m_ItemList = new();
+[SerializeField, IsValid] private Dictionary<string, ItemData> m_ItemMap = new();
+
+// Individual, array, and list managed references
+[SerializeReference, IsValid] private IRule m_Rule;
+[SerializeReference, IsValid] private IRule[] m_RuleArray = Array.Empty<IRule>();
+[SerializeReference, IsValid] private List<IRule> m_Rules = new();
 ```
 
-<img src="docs/images/is-valid-inspector.png" width="411" alt="Unity Inspector showing recursive IsValid failures and collapsed-field summaries">
+**Inline nested objects and custom `IValidatable` values:**
+
+<img src="docs/images/is-valid-inspector.png" width="411" alt="Unity Inspector showing expanded nested objects and recursive IsValid failures">
+
+**Unity 6.6+ dictionary values:**
+
+<img src="docs/images/dictionary-is-valid-inspector.png" width="411" alt="Unity Inspector showing expanded recursively validated dictionary values and their nested failures">
 
 Combine collection attributes when the contract requires more than one guarantee. For example,
 `[NotEmpty, HasNoNulls]` requires at least one element and rejects null elements.
