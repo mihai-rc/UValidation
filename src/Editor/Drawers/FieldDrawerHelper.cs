@@ -1,8 +1,11 @@
 using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEditor.UIElements;
 using UnityEngine;
+using UnityEngine.Pool;
 using UnityEngine.UIElements;
 
 namespace UValidation.Editor
@@ -17,6 +20,38 @@ namespace UValidation.Editor
         private const float k_MessageSpacing = 2.0f;
         private const string k_WarningMessage = "[{0}] is only valid on {1} fields. Field '{2}' has type '{3}'.";
         private static readonly GUIContent s_ElementTooltipContent = new();
+        private static readonly ConditionalWeakTable<ListView, DictionaryValueListBinding>
+            s_DictionaryValueListBindings = new();
+
+        private sealed class DictionaryValueListBinding
+        {
+            private Action<VisualElement, int> m_OriginalBindItem;
+            private Action m_Refresh;
+
+            internal void Configure(ListView listView, Action refresh)
+            {
+                m_Refresh = refresh;
+                Action<VisualElement, int> bindItem = BindItem;
+                if (listView.bindItem == bindItem)
+                {
+                    return;
+                }
+
+                m_OriginalBindItem = listView.bindItem;
+                listView.bindItem = bindItem;
+            }
+
+            private void BindItem(VisualElement element, int index)
+            {
+                m_OriginalBindItem?.Invoke(element, index);
+                element.schedule.Execute(Refresh);
+            }
+
+            private void Refresh()
+            {
+                m_Refresh?.Invoke();
+            }
+        }
 
         private sealed class ImguiCollectionElementDrawer
         {
@@ -82,7 +117,8 @@ namespace UValidation.Editor
             string violationMessage,
             Func<SerializedProperty, bool> usageValidationFn,
             Func<SerializedProperty, bool> propertyValidationFn,
-            Func<SerializedProperty, bool> elementValidationFn = null)
+            Func<SerializedProperty, bool> elementValidationFn = null,
+            bool validateDictionaryValues = false)
         {
             var container = new VisualElement();
             var helpBox = new HelpBox
@@ -121,7 +157,12 @@ namespace UValidation.Editor
 
             ConfigureHelpBoxContent(helpBox);
 
-            RefreshElementIcons(propertyField, property, violationMessage, elementValidationFn);
+            RefreshElementIcons(
+                propertyField,
+                property,
+                violationMessage,
+                elementValidationFn,
+                validateDictionaryValues);
 
             container.TrackPropertyValue(property, changedProperty =>
             {
@@ -138,7 +179,8 @@ namespace UValidation.Editor
                     targets,
                     propertyPath,
                     violationMessage,
-                    elementValidationFn));
+                    elementValidationFn,
+                    validateDictionaryValues));
             });
 
             propertyField.RegisterCallback<GeometryChangedEvent>(_ => RefreshElementIcons(
@@ -146,7 +188,8 @@ namespace UValidation.Editor
                 targets,
                 propertyPath,
                 violationMessage,
-                elementValidationFn));
+                elementValidationFn,
+                validateDictionaryValues));
 
             return container;
         }
@@ -404,8 +447,22 @@ namespace UValidation.Editor
             UnityEngine.Object[] targets,
             string propertyPath,
             string violationMessage,
-            Func<SerializedProperty, bool> elementValidationFn)
+            Func<SerializedProperty, bool> elementValidationFn,
+            bool validateDictionaryValues)
         {
+            if (validateDictionaryValues && elementValidationFn != null)
+            {
+                ConfigureDictionaryValueListBinding(
+                    collectionField,
+                    () => RefreshElementIcons(
+                        collectionField,
+                        targets,
+                        propertyPath,
+                        violationMessage,
+                        elementValidationFn,
+                        validateDictionaryValues));
+            }
+
             var validTargets = Array.FindAll(targets, target => target != null);
             if (validTargets.Length == 0)
             {
@@ -416,7 +473,12 @@ namespace UValidation.Editor
             var collection = serializedObject.FindProperty(propertyPath);
             if (collection != null)
             {
-                RefreshElementIcons(collectionField, collection, violationMessage, elementValidationFn);
+                RefreshElementIcons(
+                    collectionField,
+                    collection,
+                    violationMessage,
+                    elementValidationFn,
+                    validateDictionaryValues);
             }
         }
 
@@ -424,56 +486,170 @@ namespace UValidation.Editor
             PropertyField collectionField,
             SerializedProperty collection,
             string violationMessage,
-            Func<SerializedProperty, bool> elementValidationFn)
+            Func<SerializedProperty, bool> elementValidationFn,
+            bool validateDictionaryValues)
         {
             if (elementValidationFn == null || !IsCollection(collection))
             {
                 return;
             }
 
+            if (validateDictionaryValues)
+            {
+                RefreshDictionaryValueIcons(
+                    collectionField,
+                    collection,
+                    violationMessage,
+                    elementValidationFn);
+                return;
+            }
+
             for (var i = 0; i < collection.arraySize; i++)
             {
                 var element = collection.GetArrayElementAtIndex(i);
-
-                var elementField = collectionField
-                    .Query<PropertyField>()
-                    .Where(field => !string.IsNullOrEmpty(field.bindingPath) &&
-                        (field.bindingPath == element.propertyPath ||
-                         element.propertyPath.EndsWith(field.bindingPath, StringComparison.Ordinal)))
-                    .First();
+                var elementField = FindBoundPropertyField(collectionField, element.propertyPath);
 
                 if (elementField == null)
                 {
                     continue;
                 }
 
-                var icon = elementField.Q<Image>(k_ElementErrorIconName);
                 var isValid = IsElementValidForEveryTarget(collection, i, elementValidationFn);
-                if (isValid)
-                {
-                    icon?.RemoveFromHierarchy();
-                    continue;
-                }
-
-                ConfigureElementFieldLayout(elementField);
-                if (icon != null)
-                {
-                    continue;
-                }
-
-                icon = new Image
-                {
-                    name = k_ElementErrorIconName,
-                    image = EditorGUIUtility.IconContent(k_ErrorIcon).image,
-                    tooltip = violationMessage
-                };
-
-                icon.style.width = 16.0f;
-                icon.style.height = 16.0f;
-                icon.style.marginRight = 4.0f;
-                icon.style.flexShrink = 0.0f;
-                elementField.Insert(0, icon);
+                SetElementErrorIcon(elementField, !isValid, violationMessage);
             }
+        }
+
+        private static void ConfigureDictionaryValueListBinding(
+            PropertyField collectionField,
+            Action refresh)
+        {
+            var listView = collectionField.Q<ListView>();
+            if (listView == null)
+            {
+                return;
+            }
+
+            var binding = s_DictionaryValueListBindings.GetValue(
+                listView,
+                _ => new DictionaryValueListBinding());
+            binding.Configure(listView, refresh);
+        }
+
+        private static void RefreshDictionaryValueIcons(
+            PropertyField collectionField,
+            SerializedProperty dictionary,
+            string violationMessage,
+            Func<SerializedProperty, bool> valueValidationFn)
+        {
+            var effectiveValuePaths = HashSetPool<string>.Get();
+            var invalidValuePaths = HashSetPool<string>.Get();
+            try
+            {
+                using var values = SerializedDictionaryAdapter.EnumerateEffectiveValues(dictionary);
+                while (values.MoveNext(out var value, out var entryIndex))
+                {
+                    if (value == null)
+                    {
+                        continue;
+                    }
+
+                    effectiveValuePaths.Add(value.propertyPath);
+                    if (!IsDictionaryValueValidForEveryTarget(dictionary, entryIndex, valueValidationFn))
+                    {
+                        invalidValuePaths.Add(value.propertyPath);
+                    }
+                }
+
+                collectionField.Query<PropertyField>().ForEach(field =>
+                {
+                    if (string.IsNullOrEmpty(field.bindingPath))
+                    {
+                        return;
+                    }
+
+                    var isEffectiveValue = ContainsMatchingPath(effectiveValuePaths, field.bindingPath);
+                    var isInvalid = isEffectiveValue && ContainsMatchingPath(invalidValuePaths, field.bindingPath);
+                    var icon = field.Q<Image>(k_ElementErrorIconName);
+                    if (isEffectiveValue || icon?.parent == field)
+                    {
+                        SetElementErrorIcon(field, isInvalid, violationMessage);
+                    }
+                });
+            }
+            finally
+            {
+                HashSetPool<string>.Release(invalidValuePaths);
+                HashSetPool<string>.Release(effectiveValuePaths);
+            }
+        }
+
+        private static PropertyField FindBoundPropertyField(
+            PropertyField collectionField,
+            string propertyPath)
+        {
+            return collectionField
+                .Query<PropertyField>()
+                .Where(field => PathsMatch(propertyPath, field.bindingPath))
+                .First();
+        }
+
+        private static bool ContainsMatchingPath(HashSet<string> propertyPaths, string bindingPath)
+        {
+            foreach (var propertyPath in propertyPaths)
+            {
+                if (PathsMatch(propertyPath, bindingPath))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool PathsMatch(string propertyPath, string bindingPath)
+        {
+            return !string.IsNullOrEmpty(propertyPath) &&
+                   !string.IsNullOrEmpty(bindingPath) &&
+                   (bindingPath == propertyPath ||
+                    propertyPath.EndsWith(bindingPath, StringComparison.Ordinal));
+        }
+
+        private static void SetElementErrorIcon(
+            PropertyField elementField,
+            bool hasError,
+            string violationMessage)
+        {
+            var icon = elementField.Q<Image>(k_ElementErrorIconName);
+            if (icon?.parent != elementField)
+            {
+                icon = null;
+            }
+
+            if (!hasError)
+            {
+                icon?.RemoveFromHierarchy();
+                return;
+            }
+
+            ConfigureElementFieldLayout(elementField);
+            if (icon != null)
+            {
+                icon.tooltip = violationMessage;
+                return;
+            }
+
+            icon = new Image
+            {
+                name = k_ElementErrorIconName,
+                image = EditorGUIUtility.IconContent(k_ErrorIcon).image,
+                tooltip = violationMessage
+            };
+
+            icon.style.width = 16.0f;
+            icon.style.height = 16.0f;
+            icon.style.marginRight = 4.0f;
+            icon.style.flexShrink = 0.0f;
+            elementField.Insert(0, icon);
         }
 
         private static void ConfigureElementFieldLayout(PropertyField elementField)
@@ -611,6 +787,26 @@ namespace UValidation.Editor
                 collection,
                 targetCollection => index < targetCollection.arraySize
                     && elementValidationFn(targetCollection.GetArrayElementAtIndex(index)));
+        }
+
+        private static bool IsDictionaryValueValidForEveryTarget(
+            SerializedProperty dictionary,
+            int entryIndex,
+            Func<SerializedProperty, bool> valueValidationFn)
+        {
+            return EveryTargetPasses(dictionary, targetDictionary =>
+            {
+                using var values = SerializedDictionaryAdapter.EnumerateEffectiveValues(targetDictionary);
+                while (values.MoveNext(out var value, out var targetEntryIndex))
+                {
+                    if (targetEntryIndex == entryIndex)
+                    {
+                        return value != null && valueValidationFn(value);
+                    }
+                }
+
+                return false;
+            });
         }
 
         private static Func<SerializedProperty, bool> GetApplicableElementValidation(

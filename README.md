@@ -32,7 +32,7 @@ The intention behind this library was historically to reduce the iteration time 
 In Unity, open **Window > Package Manager**, select **Install package from git URL**, and enter:
 
 ```text
-https://github.com/mihai-rc/UValidation.git?path=/src#v0.1.0
+https://github.com/mihai-rc/UValidation.git?path=/src
 ```
 
 ### Project manifest
@@ -42,12 +42,10 @@ Alternatively, add the package directly to your project's `Packages/manifest.jso
 ```json
 {
   "dependencies": {
-    "com.uvalidation.validation": "https://github.com/mihai-rc/UValidation.git?path=/src#v0.1.0"
+    "com.uvalidation.validation": "https://github.com/mihai-rc/UValidation.git?path=/src"
   }
 }
 ```
-
-Pinning a tag is recommended so package updates remain deliberate and reproducible.
 
 ### Compatibility
 - The legacy Hierarchy is supported in Unity 6.3 and newer.
@@ -202,10 +200,10 @@ Unity includes in the live dictionary, so duplicate and null-key placeholder row
 
 ```csharp
 [SerializeField, NotEmpty, HasNoNulls]
-private Dictionary<string, GameObject> m_Views = new();
+private Dictionary<string, GameObject> m_Views;
 
 [SerializeField, IsValid]
-private Dictionary<string, ItemData> m_Items = new();
+private Dictionary<string, ItemData> m_Items;
 ```
 
 Unity does not serialize public dictionaries implicitly, and `[SerializeReference]` is not valid on
@@ -226,8 +224,8 @@ public sealed class ItemData
     [SerializeField, NotEmpty] private string m_Name;
 }
 
-[SerializeField, IsValid] private ItemData m_Item = new();
-[SerializeField, IsValid] private List<ItemData> m_Items = new();
+[SerializeField, IsValid] private ItemData m_Item;
+[SerializeField, IsValid] private List<ItemData> m_Items;
 ```
 
 Every annotated field inside each object is validated recursively. An invalid `[IsValid]` target
@@ -313,6 +311,8 @@ Dispose the validation after reading `Passed` or `Failed`, reporting the result,
 
 Inspector messages and Hierarchy and Project window feedback are always active. Blocking policies
 are configured separately under **Project Settings > UValidation**:
+
+<img src="docs/images/project-settings.png" width="898" alt="Unity Project Settings showing UValidation enforcement options">
 
 | Policy | Behavior |
 | --- | --- |

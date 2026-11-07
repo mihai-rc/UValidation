@@ -4,8 +4,11 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.TestTools;
+using UnityEngine.UIElements;
 
 namespace UValidation.Editor.Tests
 {
@@ -39,6 +42,11 @@ namespace UValidation.Editor.Tests
         private sealed class ObjectKeyHost : ScriptableObject
         {
             [SerializeField, NotEmpty] private Dictionary<GameObject, string> m_Values = new();
+        }
+
+        private sealed class ObjectKeysAndValuesHost : ScriptableObject
+        {
+            [SerializeField, HasNoNulls] private Dictionary<GameObject, GameObject> m_Values = new();
         }
 
         private sealed class StringValuesHost : ScriptableObject
@@ -278,11 +286,248 @@ namespace UValidation.Editor.Tests
             Assert.IsFalse(ValidationAttributeTargetUtility.SupportsHasNoEmpties(typeof(Dictionary<int, GameObject>)));
         }
 
+        [UnityTest]
+        public System.Collections.IEnumerator UiToolkit_HasNoNullsDictionary_AddsIconOnlyBeforeInvalidValue()
+        {
+            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
+            {
+                Assert.Ignore("UI Toolkit EditorWindow rendering requires a graphics device.");
+            }
+
+            var host = ScriptableObject.CreateInstance<ObjectValuesHost>();
+            var assigned = new GameObject("assigned-dictionary-value");
+            var window = ScriptableObject.CreateInstance<UiToolkitTestWindow>();
+            try
+            {
+                host.Values.Add("valid", assigned);
+                host.Values.Add("invalid", null);
+
+                using var serialized = new SerializedObject(host);
+                var dictionary = serialized.FindProperty("m_Values");
+                dictionary.isExpanded = true;
+                var invalidValuePath = GetDictionaryValuePath(dictionary, "invalid");
+                var validValuePath = GetDictionaryValuePath(dictionary, "valid");
+                var root = CreateDictionaryValueDrawer(
+                    dictionary,
+                    "The collection must not contain null object references.",
+                    value => value.propertyType == SerializedPropertyType.ObjectReference &&
+                             value.objectReferenceValue != null);
+                root.Bind(serialized);
+
+                window.Configure(root);
+                window.position = new Rect(0.0f, 0.0f, 420.0f, 320.0f);
+                window.Show();
+
+                PropertyField invalidValueField = null;
+                Image errorIcon = null;
+                for (var frame = 0; frame < 20 && errorIcon == null; frame++)
+                {
+                    window.Repaint();
+                    yield return null;
+                    invalidValueField = FindPropertyField(root, invalidValuePath);
+                    errorIcon = invalidValueField?.Q<Image>("validation-element-error-icon");
+                }
+
+                var validValueField = FindPropertyField(root, validValuePath);
+                Assert.IsNotNull(invalidValueField);
+                Assert.IsNotNull(validValueField);
+                Assert.IsNotNull(errorIcon);
+                Assert.AreSame(invalidValueField, errorIcon.parent);
+                Assert.AreEqual(0, invalidValueField.IndexOf(errorIcon));
+                Assert.IsNull(GetDirectErrorIcon(validValueField));
+
+                var objectField = invalidValueField.Q<ObjectField>();
+                Assert.IsNotNull(objectField);
+                Assert.Less(errorIcon.worldBound.xMin, objectField.worldBound.xMin);
+                Assert.LessOrEqual(objectField.worldBound.xMax, root.worldBound.xMax + 0.5f);
+            }
+            finally
+            {
+                window.Close();
+                UnityEngine.Object.DestroyImmediate(window);
+                UnityEngine.Object.DestroyImmediate(assigned);
+                UnityEngine.Object.DestroyImmediate(host);
+            }
+        }
+
+        [UnityTest]
+        public System.Collections.IEnumerator UiToolkit_HasNoEmptiesDictionary_AddsIconBeforeEmptyValue()
+        {
+            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
+            {
+                Assert.Ignore("UI Toolkit EditorWindow rendering requires a graphics device.");
+            }
+
+            var host = ScriptableObject.CreateInstance<StringValuesHost>();
+            var window = ScriptableObject.CreateInstance<UiToolkitTestWindow>();
+            try
+            {
+                host.Values.Add(1, string.Empty);
+                host.Values.Add(2, "Configured");
+
+                using var serialized = new SerializedObject(host);
+                var dictionary = serialized.FindProperty("m_Values");
+                dictionary.isExpanded = true;
+                var invalidValuePath = GetDictionaryValuePath(dictionary, 1);
+                var validValuePath = GetDictionaryValuePath(dictionary, 2);
+                var root = CreateDictionaryValueDrawer(
+                    dictionary,
+                    "The collection must not contain null or empty strings.",
+                    value => value.propertyType == SerializedPropertyType.String &&
+                             !string.IsNullOrEmpty(value.stringValue));
+                root.Bind(serialized);
+
+                window.Configure(root);
+                window.position = new Rect(0.0f, 0.0f, 420.0f, 320.0f);
+                window.Show();
+
+                PropertyField invalidValueField = null;
+                Image errorIcon = null;
+                for (var frame = 0; frame < 20 && errorIcon == null; frame++)
+                {
+                    window.Repaint();
+                    yield return null;
+                    invalidValueField = FindPropertyField(root, invalidValuePath);
+                    errorIcon = invalidValueField?.Q<Image>("validation-element-error-icon");
+                }
+
+                var validValueField = FindPropertyField(root, validValuePath);
+                Assert.IsNotNull(invalidValueField);
+                Assert.IsNotNull(validValueField);
+                Assert.IsNotNull(errorIcon);
+                Assert.AreSame(invalidValueField, errorIcon.parent);
+                Assert.IsNull(GetDirectErrorIcon(validValueField));
+            }
+            finally
+            {
+                window.Close();
+                UnityEngine.Object.DestroyImmediate(window);
+                UnityEngine.Object.DestroyImmediate(host);
+            }
+        }
+
+        [UnityTest]
+        public System.Collections.IEnumerator UiToolkit_HasNoNullsDictionary_SkipsNullKeyPlaceholderValue()
+        {
+            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
+            {
+                Assert.Ignore("UI Toolkit EditorWindow rendering requires a graphics device.");
+            }
+
+            var host = ScriptableObject.CreateInstance<ObjectKeysAndValuesHost>();
+            var window = ScriptableObject.CreateInstance<UiToolkitTestWindow>();
+            try
+            {
+                using var serialized = new SerializedObject(host);
+                var dictionary = serialized.FindProperty("m_Values");
+                dictionary.arraySize = 1;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                serialized.Update();
+                dictionary = serialized.FindProperty("m_Values");
+                dictionary.isExpanded = true;
+
+                var root = CreateDictionaryValueDrawer(
+                    dictionary,
+                    "The collection must not contain null object references.",
+                    value => value.propertyType == SerializedPropertyType.ObjectReference &&
+                             value.objectReferenceValue != null);
+                root.Bind(serialized);
+
+                window.Configure(root);
+                window.position = new Rect(0.0f, 0.0f, 420.0f, 280.0f);
+                window.Show();
+
+                for (var frame = 0; frame < 10; frame++)
+                {
+                    window.Repaint();
+                    yield return null;
+                }
+
+                Assert.IsNull(root.Q<Image>("validation-element-error-icon"));
+            }
+            finally
+            {
+                window.Close();
+                UnityEngine.Object.DestroyImmediate(window);
+                UnityEngine.Object.DestroyImmediate(host);
+            }
+        }
+
+        private static VisualElement CreateDictionaryValueDrawer(
+            SerializedProperty dictionary,
+            string violationMessage,
+            Func<SerializedProperty, bool> valueValidation)
+        {
+            return FieldDrawerHelper.CreatePropertyGUI(
+                dictionary,
+                nameof(HasNoNullsAttribute),
+                "dictionary values",
+                violationMessage,
+                _ => true,
+                property => SerializedDictionaryAdapter.EveryEffectiveValuePasses(property, valueValidation),
+                valueValidation,
+                validateDictionaryValues: true);
+        }
+
+        private static string GetDictionaryValuePath(SerializedProperty dictionary, string key)
+        {
+            for (var i = 0; i < dictionary.arraySize; i++)
+            {
+                var entry = dictionary.GetArrayElementAtIndex(i);
+                if (entry.FindPropertyRelative("key").stringValue == key)
+                {
+                    return entry.FindPropertyRelative("value").propertyPath;
+                }
+            }
+
+            Assert.Fail($"Dictionary key '{key}' was not serialized.");
+            return null;
+        }
+
+        private static string GetDictionaryValuePath(SerializedProperty dictionary, int key)
+        {
+            for (var i = 0; i < dictionary.arraySize; i++)
+            {
+                var entry = dictionary.GetArrayElementAtIndex(i);
+                if (entry.FindPropertyRelative("key").intValue == key)
+                {
+                    return entry.FindPropertyRelative("value").propertyPath;
+                }
+            }
+
+            Assert.Fail($"Dictionary key '{key}' was not serialized.");
+            return null;
+        }
+
+        private static PropertyField FindPropertyField(VisualElement root, string propertyPath)
+        {
+            return root
+                .Query<PropertyField>()
+                .Where(field => !string.IsNullOrEmpty(field.bindingPath) &&
+                                (field.bindingPath == propertyPath ||
+                                 propertyPath.EndsWith(field.bindingPath, StringComparison.Ordinal)))
+                .First();
+        }
+
+        private static Image GetDirectErrorIcon(PropertyField field)
+        {
+            var icon = field?.Q<Image>("validation-element-error-icon");
+            return icon?.parent == field ? icon : null;
+        }
+
         private static Validation Validate(UnityEngine.Object target)
         {
             var validation = new Validation(target);
             SerializedFieldsValidator.ValidateAttributes(target, validation);
             return validation;
+        }
+
+        private sealed class UiToolkitTestWindow : EditorWindow
+        {
+            internal void Configure(VisualElement content)
+            {
+                rootVisualElement.Add(content);
+            }
         }
     }
 }

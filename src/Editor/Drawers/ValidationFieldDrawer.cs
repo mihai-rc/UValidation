@@ -33,6 +33,7 @@ namespace UValidation.Editor
         /// <inheritdoc />
         public sealed override VisualElement CreatePropertyGUI(SerializedProperty property)
         {
+            var validateDictionaryValues = SupportsElementValidation && IsDictionaryField;
             return FieldDrawerHelper.CreatePropertyGUI(
                 property,
                 AttributeName,
@@ -40,7 +41,8 @@ namespace UValidation.Editor
                 ViolationMessage,
                 IsUsageValid,
                 IsPropertyValid,
-                GetElementValidation());
+                GetElementValidation(includeDictionaryValues: true),
+                validateDictionaryValues);
         }
 
         /// <inheritdoc />
@@ -55,7 +57,7 @@ namespace UValidation.Editor
                 ViolationMessage,
                 IsUsageValid,
                 IsPropertyValid,
-                GetElementValidation());
+                GetElementValidation(includeDictionaryValues: false));
         }
 
         /// <inheritdoc />
@@ -69,7 +71,7 @@ namespace UValidation.Editor
                 ViolationMessage,
                 IsUsageValid,
                 IsPropertyValid,
-                GetElementValidation());
+                GetElementValidation(includeDictionaryValues: false));
         }
 
         /// <summary>
@@ -96,12 +98,13 @@ namespace UValidation.Editor
             return true;
         }
 
-        private Func<SerializedProperty, bool> GetElementValidation()
+        private bool IsDictionaryField =>
+            fieldInfo != null && UnitySerializedCollectionUtility.IsDictionary(fieldInfo.FieldType);
+
+        private Func<SerializedProperty, bool> GetElementValidation(bool includeDictionaryValues)
         {
-            // Unity's dictionary editor owns its two-column row layout and its duplicate/null-key icons.
-            // Dictionary validation stays at field level until Unity exposes a stable row-decoration API.
             return SupportsElementValidation &&
-                   (fieldInfo == null || !UnitySerializedCollectionUtility.IsDictionary(fieldInfo.FieldType))
+                   (includeDictionaryValues || !IsDictionaryField)
                 ? IsElementValid
                 : null;
         }
