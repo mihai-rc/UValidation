@@ -2,11 +2,11 @@
 
 UValidation is a Unity package for catching invalid serialized content while it is still being
 authored. It adds field-level validation messages to the Inspector, marks invalid objects in the
-Hierarchy and Project windows, supports recursive and custom validation, and can optionally block
-invalid saves, Play Mode, Editor quit, or player builds.
+Hierarchy and Project windows, and it can optionally block invalid saves, entering Play Mode, quitting the Editor, or building the application.
 
-The package also includes a small fluent runtime API for validating values that do not come from
-Unity serialization.
+The package also includes a small fluent API for validating values that need a more complex validation scenario or do not come from Unity serialization.
+
+The intention behind this library was historically to reduce the iteration time by making the editor aggressively notify when something is misconfigured to the point it can block the user from moving forward until the misconfiguration is addressed. As a consequence to that, by trusting a framework like this, it can enable a _negative space_ coding style allowing the code to focus less on checking and handling all the invalid states the serialized fields could be in and more on the actual logic.
 
 ## Features
 
@@ -21,30 +21,11 @@ Unity serialization.
 - Correct handling of destroyed `UnityEngine.Object` references, inherited serialized fields,
   prefabs, scenes, ScriptableObjects, sub-assets, and missing scripts.
 
-## Requirements
+## Installation
+
+### Requirements
 
 - Unity 6.3 or newer.
-- The legacy Hierarchy is supported in Unity 6.3 and newer.
-- The UI Toolkit Hierarchy integration uses Unity's official extension API and is available in
-  Unity 6.6 and newer.
-
-### Unity version policy
-
-UValidation is developed against the latest production-ready Unity release. The sandbox project
-tracks that primary version, while the package's `unity` field defines the oldest compatibility
-version. New engine capabilities are supported where Unity provides them; they are not reimplemented
-for older releases.
-
-The release matrix has two lanes:
-
-- **Primary:** run the complete sandbox Edit Mode suite on the version declared by
-  `UValidationSandbox/ProjectSettings/ProjectVersion.txt`.
-- **Compatibility:** compile the package and run its core Edit Mode suite on Unity 6.3 LTS.
-
-The GitHub Actions workflow requires the `UNITY_LICENSE`, `UNITY_EMAIL`, and `UNITY_PASSWORD`
-repository secrets described by GameCI's Unity activation documentation.
-
-## Installation
 
 ### Package Manager
 
@@ -53,8 +34,6 @@ In Unity, open **Window > Package Manager**, select **Install package from git U
 ```text
 https://github.com/mihai-rc/UValidation.git?path=/src#v0.1.0
 ```
-
-To follow the development branch before a tagged release, replace `#v0.1.0` with `#dev`.
 
 ### Project manifest
 
@@ -70,6 +49,11 @@ Alternatively, add the package directly to your project's `Packages/manifest.jso
 
 Pinning a tag is recommended so package updates remain deliberate and reproducible.
 
+### Compatibility
+- The legacy Hierarchy is supported in Unity 6.3 and newer.
+- The UI Toolkit Hierarchy integration uses Unity's official extension API and is available in
+  Unity 6.6 and newer.
+
 ## Quick start
 
 Add validation attributes to fields that Unity serializes:
@@ -84,9 +68,9 @@ public sealed class EnemyConfig : MonoBehaviour
 {
     [SerializeField, NotNull] private Transform m_Target;
     [SerializeField, NotEmpty] private string m_Id;
-    [SerializeField, NotEmpty, HasNoNulls] private List<GameObject> m_SpawnPoints = new();
-    [SerializeField, HasNoEmpties] private List<string> m_Tags = new();
-    [SerializeField, IsValid] private Stats m_Stats = new();
+    [SerializeField, NotEmpty, HasNoNulls] private List<GameObject> m_SpawnPoints;
+    [SerializeField, HasNoEmpties] private List<string> m_Tags;
+    [SerializeField, IsValid] private Stats m_Stats;
 
     [Serializable]
     private sealed class Stats
@@ -96,21 +80,15 @@ public sealed class EnemyConfig : MonoBehaviour
 }
 ```
 
-Invalid fields display an error in the Inspector. The owning component, GameObject, or asset also
-receives validation feedback in the relevant Editor window.
+Invalid fields display an error in the Inspector. The owning component, GameObject, or asset also receives validation feedback in the relevant Editor window.
 
 ## Editor feedback
 
-Validation failures appear beside the affected field in the Inspector. The owning GameObject and
-scene or asset are also labelled red in the Hierarchy and Project windows, making invalid content
-visible without opening every object. The screenshots below were captured in Unity 6.6.
+Validation failures appear beside the affected field in the Inspector. The owning GameObject and scene or asset are also labelled red in the Hierarchy and Project windows, making invalid content visible without opening every object.
 
 <img src="docs/images/validation-overview.png" width="775" alt="Unity 6.6 Editor showing validation messages in the Inspector and red invalid labels in the Hierarchy and Project windows">
 
 ## Attribute reference
-
-Each subsection lists every serialized form supported by that attribute. Collection and nested
-examples are expanded in the screenshots so the failing values remain visible.
 
 ### `[NotNull]`
 
@@ -126,16 +104,13 @@ fails validation.
 
 ### `[NotEmpty]`
 
-Use `[NotEmpty]` for a string that must contain text or a collection that must contain at least one
-effective element. It supports strings, arrays, lists, and Unity 6.6+ dictionaries. Typical examples
-are identifiers, display names, spawn-point collections, and lookup dictionaries that are not
-useful when empty.
+Use `[NotEmpty]` for strings that must contain text or a collections that must contain at least one effective element. It supports strings, arrays, lists, and Unity 6.6+ dictionaries.
 
 ```csharp
 [SerializeField, NotEmpty] private string m_Id;
-[SerializeField, NotEmpty] private GameObject[] m_SpawnPoints = Array.Empty<GameObject>();
-[SerializeField, NotEmpty] private List<int> m_WaveIds = new();
-[SerializeField, NotEmpty] private Dictionary<string, GameObject> m_Views = new();
+[SerializeField, NotEmpty] private GameObject[] m_SpawnPoints;
+[SerializeField, NotEmpty] private List<int> m_WaveIds;
+[SerializeField, NotEmpty] private Dictionary<string, GameObject> m_Views;
 ```
 
 **Strings, arrays, and lists:**
@@ -148,15 +123,13 @@ useful when empty.
 
 ### `[HasNoNulls]`
 
-Use `[HasNoNulls]` when every entry in a collection of `UnityEngine.Object` references must be
-assigned—for example, prefabs that will all be instantiated. It supports arrays and lists of object
-references, plus Unity 6.6+ dictionaries with object-reference values. Empty collections pass;
-combine it with `[NotEmpty]` when at least one entry is also required.
+Use `[HasNoNulls]` when every entry in a collection of `UnityEngine.Object` references must be assigned. It supports arrays and lists of object
+references, plus Unity 6.6+ dictionaries with object-reference values. Empty collections pass; combine it with `[NotEmpty]` when at least one entry is also required.
 
 ```csharp
-[SerializeField, HasNoNulls] private GameObject[] m_Prefabs = Array.Empty<GameObject>();
-[SerializeField, HasNoNulls] private List<Transform> m_Targets = new();
-[SerializeField, HasNoNulls] private Dictionary<string, GameObject> m_Views = new();
+[SerializeField, HasNoNulls] private GameObject[] m_Prefabs;
+[SerializeField, HasNoNulls] private List<Transform> m_Targets;
+[SerializeField, HasNoNulls] private Dictionary<string, GameObject> m_Views;
 ```
 
 **Arrays and lists:**
@@ -175,9 +148,9 @@ dictionaries with string values. Empty collections pass; add `[NotEmpty]` if the
 must also contain an entry.
 
 ```csharp
-[SerializeField, HasNoEmpties] private string[] m_Layers = Array.Empty<string>();
-[SerializeField, HasNoEmpties] private List<string> m_Tags = new();
-[SerializeField, HasNoEmpties] private Dictionary<int, string> m_Labels = new();
+[SerializeField, HasNoEmpties] private string[] m_Layers;
+[SerializeField, HasNoEmpties] private List<string> m_Tags;
+[SerializeField, HasNoEmpties] private Dictionary<int, string> m_Labels;
 ```
 
 **Arrays and lists:**
@@ -190,26 +163,22 @@ must also contain an entry.
 
 ### `[IsValid]`
 
-Use `[IsValid]` for nested serialized configuration whose own attributed fields and custom
-validation rules must pass. It supports serializable classes and structs, arrays and lists of those
-types, Unity 6.6+ dictionary values, and individual or collected `[SerializeReference]` values. A
-summary message remains visible above a collapsed invalid field so the nested failure is easy to
-locate.
+Use `[IsValid]` for fields of custom serialized types whose own attributed fields and custom validation rules must pass. It supports serializable classes and structs, arrays and lists of those types, Unity 6.6+ dictionary values, and individual or collected `[SerializeReference]` values. A summary message remains visible above a collapsed invalid field so the nested failure is easy to locate.
 
 ```csharp
 // Serializable class and struct
-[SerializeField, IsValid] private ItemData m_Item = new();
+[SerializeField, IsValid] private ItemData m_Item;
 [SerializeField, IsValid] private StatsData m_Stats;
 
 // Arrays, lists, and Unity 6.6+ dictionaries of serializable values
-[SerializeField, IsValid] private ItemData[] m_Items = Array.Empty<ItemData>();
-[SerializeField, IsValid] private List<ItemData> m_ItemList = new();
-[SerializeField, IsValid] private Dictionary<string, ItemData> m_ItemMap = new();
+[SerializeField, IsValid] private ItemData[] m_Items;
+[SerializeField, IsValid] private List<ItemData> m_ItemList;
+[SerializeField, IsValid] private Dictionary<string, ItemData> m_ItemMap;
 
 // Individual, array, and list managed references
 [SerializeReference, IsValid] private IRule m_Rule;
-[SerializeReference, IsValid] private IRule[] m_RuleArray = Array.Empty<IRule>();
-[SerializeReference, IsValid] private List<IRule> m_Rules = new();
+[SerializeReference, IsValid] private IRule[] m_RuleArray;
+[SerializeReference, IsValid] private List<IRule> m_Rules;
 ```
 
 **Inline nested objects and custom `IValidatable` values:**
