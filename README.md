@@ -1,6 +1,103 @@
 # UValidation
 
-Inspector and runtime content validation for Unity.
+UValidation is a Unity package for catching invalid serialized content while it is still being
+authored. It adds field-level validation messages to the Inspector, marks invalid objects in the
+Hierarchy and Project windows, supports recursive and custom validation, and can optionally block
+invalid saves, Play Mode, Editor quit, or player builds.
+
+The package also includes a small fluent runtime API for validating values that do not come from
+Unity serialization.
+
+## Features
+
+- Inspector validation attributes for required references, strings, collections, and nested data.
+- Immediate error messages beside the field that failed validation.
+- Validation feedback in the Hierarchy and Project windows.
+- Recursive validation of serializable classes, structs, collections, and `[SerializeReference]`
+  values.
+- Custom rules through `IValidatable`.
+- Fluent runtime validation with source location and Unity object context in diagnostics.
+- Optional project-wide enforcement for saves, Play Mode, Editor quit, and player builds.
+- Correct handling of destroyed `UnityEngine.Object` references, inherited serialized fields,
+  prefabs, scenes, ScriptableObjects, sub-assets, and missing scripts.
+
+## Requirements
+
+- Unity 6.3 or newer.
+- The legacy Hierarchy is supported in Unity 6.3 and newer.
+- The UI Toolkit Hierarchy integration uses Unity's official extension API and is available in
+  Unity 6.6 and newer.
+
+## Installation
+
+### Package Manager
+
+In Unity, open **Window > Package Manager**, select **Install package from git URL**, and enter:
+
+```text
+https://github.com/mihai-rc/UValidation.git?path=/src#v0.1.0
+```
+
+To follow the development branch before a tagged release, replace `#v0.1.0` with `#dev`.
+
+### Project manifest
+
+Alternatively, add the package directly to your project's `Packages/manifest.json`:
+
+```json
+{
+  "dependencies": {
+    "com.uvalidation.validation": "https://github.com/mihai-rc/UValidation.git?path=/src#v0.1.0"
+  }
+}
+```
+
+Pinning a tag is recommended so package updates remain deliberate and reproducible.
+
+## Quick start
+
+Add validation attributes to fields that Unity serializes:
+
+```csharp
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+using UValidation;
+
+public sealed class EnemyConfig : MonoBehaviour
+{
+    [SerializeField, NotNull] private Transform m_Target;
+    [SerializeField, NotEmpty] private string m_Id;
+    [SerializeField, NotEmpty, HasNoNulls] private List<GameObject> m_SpawnPoints = new();
+    [SerializeField, HasNoEmpties] private List<string> m_Tags = new();
+    [SerializeField, IsValid] private Stats m_Stats = new();
+
+    [Serializable]
+    private sealed class Stats
+    {
+        [SerializeField, NotEmpty] private string m_DisplayName;
+    }
+}
+```
+
+Invalid fields display an error in the Inspector. The owning component, GameObject, or asset also
+receives validation feedback in the relevant Editor window.
+
+## Attribute reference
+
+| Attribute | Supported serialized fields | Rule |
+| --- | --- | --- |
+| `[NotNull]` | `UnityEngine.Object` references | The reference must be assigned. Destroyed Unity objects count as null. |
+| `[NotEmpty]` | Strings, arrays, and lists | The value must be non-null and contain at least one character or element. |
+| `[HasNoNulls]` | Arrays and lists of `UnityEngine.Object` references | No element may be null or destroyed. An empty collection passes. |
+| `[HasNoEmpties]` | Arrays and lists of strings | No element may be null or empty. An empty collection passes. |
+| `[IsValid]` | Serializable classes, structs, arrays, lists, and supported `[SerializeReference]` values | Recursively validates the nested serialized data. Null objects and null or empty collections are skipped. |
+
+Combine collection attributes when the contract requires more than one guarantee. For example,
+`[NotEmpty, HasNoNulls]` requires at least one element and rejects null elements.
+
+Unsupported attribute placements produce an Inspector warning instead of silently promising a rule
+that Unity cannot serialize or inspect.
 
 ## Recursive validation
 
@@ -18,32 +115,54 @@ public sealed class ItemData
 [SerializeField, IsValid] private List<ItemData> m_Items = new();
 ```
 
-`[IsValid]` also works on `[SerializeReference]` fields declared as an interface, an abstract class,
-or `object`, and on arrays and lists of them. Each value is validated according to its runtime type:
+Every annotated field inside each object is validated recursively. Collection failures include the
+element index, such as `m_Items[2].m_Name`.
+
+`[IsValid]` also supports `[SerializeReference]` fields declared as an interface, abstract class, or
+`object`, including arrays and lists. Each assigned value is validated according to its runtime
+type:
 
 ```csharp
 [SerializeReference, IsValid] private IRule m_Rule;
 [SerializeReference, IsValid] private List<IRule> m_Rules = new();
 ```
 
-For a `[SerializeReference]` array or list declared with a class element type, Unity also requires
-that declared class to have `[Serializable]`. Interface and `object` collection declarations do not
-require it, but every concrete value assigned at runtime must still be serializable.
+For a `[SerializeReference]` array or list declared with a class element type, Unity requires the
+declared class to have `[Serializable]`. Interface and `object` collection declarations do not
+require it, but every concrete assigned value must still be serializable.
 
-Every annotated field inside each object is validated recursively. Collection failures include the
-element index, such as `m_Items[2].m_Name`. Custom `IValidatable` failures receive the same prefix.
-If an `IValidatable` implementation throws while invoked by UValidation, the exception is captured
-as a failed diagnostic with that object's path and original stack trace.
+`[IsValid]` controls traversal only. It does not require the nested value or collection to exist,
+and it does not require a collection to contain elements. Add `[NotEmpty]` or another constraint
+when that is part of the field's contract.
 
-`[IsValid]` only controls traversal. A null or empty collection passes, and null elements are
-skipped. Add collection constraints separately when they are part of the field's contract.
-Unsupported placements, including primitives, Unity object references, and collections of those
-types, produce an Inspector warning.
+## Custom validation
+
+Implement `IValidatable` when a type needs a rule that cannot be expressed by field attributes:
+
+```csharp
+using UnityEngine;
+using UValidation;
+
+public sealed class DamageConfig : MonoBehaviour, IValidatable
+{
+    [SerializeField] private int m_MinDamage;
+    [SerializeField] private int m_MaxDamage;
+
+    public void Validate(Validation validation)
+    {
+        validation.IsTrue(nameof(m_MinDamage), m_MinDamage <= m_MaxDamage);
+    }
+}
+```
+
+Custom validation is also invoked for nested values reached through `[IsValid]`. Their failures
+receive the same nested path prefix as attribute failures. If an implementation throws, UValidation
+records the exception as a failed diagnostic with the original stack trace.
 
 ## Runtime fluent validation
 
-Create a validation scope, chain the rules that describe the runtime contract, and report any
-accumulated failures before disposal:
+The `Validation` API can validate ordinary runtime values, including values that Unity does not
+serialize:
 
 ```csharp
 using var validation = new Validation(this);
@@ -59,45 +178,78 @@ validation
 validation.Report();
 ```
 
-Collection rules are generic, so value-type collections do not require boxing adapters. Null
-checks recognize destroyed Unity objects even when they are exposed as `object`, and nullable
-value types have dedicated overloads. Use the predicate form of `IsTrue` when evaluation itself
-may throw and should be recorded as a validation failure:
+Rules accumulate failures so one validation pass can report the complete problem set. Collection
+rules are generic, destroyed Unity objects are recognized even when exposed as `object`, and
+nullable value types have dedicated overloads.
+
+Use the predicate overload when evaluation itself may throw and should be captured as a validation
+failure:
 
 ```csharp
 validation.IsTrue(nameof(m_Config), m_Config, config => config.CalculateValue() > 0);
 ```
 
-## Editor enforcement policies
+Dispose the validation after reading `Passed` or `Failed`, reporting the result, or allowing the
+`using` scope to end.
 
-Validation feedback is always active in property drawers, Inspector headers, and the Hierarchy and
-Project windows. The legacy Hierarchy is supported in Unity 6.3 and newer; the new UI Toolkit
-Hierarchy is supported through its official extension API in Unity 6.6 and newer. Enforcement is
-configured separately under **Project Settings > UValidation**:
+## Editor feedback and enforcement
 
-- block invalid saves when Unity exposes the contents being written, and report ambiguous writes immediately after import;
-- block Play Mode when the active scene is invalid;
-- block Editor quit when a dirty ScriptableObject asset is invalid;
-- fail player builds when a processed scene is invalid.
+Inspector messages and Hierarchy and Project window feedback are always active. Blocking policies
+are configured separately under **Project Settings > UValidation**:
 
-Fresh projects start with all enforcement policies disabled. When enabled, the settings are stored
-in `ProjectSettings/UValidationSettings.asset`, so a team can commit and share them with the project.
+| Policy | Behavior |
+| --- | --- |
+| **Block Invalid Saves** | Blocks invalid scene, prefab, and ScriptableObject saves when Unity exposes the contents being written. |
+| **Block Play Mode** | Prevents entering Play Mode while the active scene is invalid. |
+| **Block Editor Quit** | Prevents quitting while a dirty ScriptableObject asset is invalid. |
+| **Fail Player Builds** | Fails a player build when a processed scene contains invalid data. |
 
-Unity may announce a newly created scene, prefab, or ScriptableObject before the AssetDatabase can
-read it. UValidation allows that initial creation to finish, validates the imported contents
-immediately afterward, and reports and highlights any failure, so a new asset can be configured
-afterwards, for example in Prefab Mode.
+All enforcement policies are disabled in a fresh project. Settings are stored in
+`ProjectSettings/UValidationSettings.asset`, allowing a team to commit and share them.
 
-Unity's save callback reports only a prefab's destination path for operations such as **Apply
-Overrides**, `PrefabUtility.SaveAsPrefabAsset`, and direct prefab-asset saves. UValidation does not
-guess which in-memory object supplied those contents: it allows the write, validates the imported
-prefab, and then reports and highlights any failure. Prefab Mode exposes its actual save root, so
-an invalid Prefab Mode save is blocked before Unity writes it.
+### Save behavior
 
-Saving a scene onto another scene file that already exists, such as **Save As** over an existing
-scene, works the same way: the save is allowed and the written scene is validated as soon as Unity
-imports it. Saving an open scene to its own path is blocked when it is invalid.
+Unity does not expose the same information for every save operation. UValidation avoids blocking a
+write based on stale or unrelated data:
 
-The old `Framework.EnableValidation` Editor preference is no longer used. Existing installations
-therefore start from the new project policies rather than inheriting a machine-wide setting from an
-unrelated project.
+- A newly created scene, prefab, or ScriptableObject is allowed to complete its initial save. The
+  imported asset is validated immediately afterward so it can be configured normally.
+- Prefab Mode exposes the actual save root, so an invalid Prefab Mode save can be blocked before
+  Unity writes it.
+- Operations such as **Apply Overrides**, `PrefabUtility.SaveAsPrefabAsset`, and direct prefab-asset
+  saves expose only the destination path. UValidation allows the write, then validates and
+  highlights the imported prefab.
+- Saving an open scene to its own path is blocked when invalid. **Save As** over a different existing
+  scene is allowed and the written scene is validated after import because Unity's callback exposes
+  the old destination contents rather than the scene being written.
+
+## Showcase project
+
+The repository includes `UValidationSandbox`, a Unity project linked to the local package source.
+Open it with the Unity version recorded in
+`UValidationSandbox/ProjectSettings/ProjectVersion.txt`.
+
+Useful examples include:
+
+- `Assets/Scenes/ValidationAttributeShowcase.unity`
+- `Assets/Scenes/ValidationInheritanceShowcase.unity`
+- `Assets/Showcase/ScriptableObjects`
+
+The examples intentionally contain both valid and invalid values. See
+`UValidationSandbox/Assets/Showcase/README.md` for the expected result of each object and asset.
+
+## Development and tests
+
+Clone the repository and open `UValidationSandbox` in Unity. Its project manifest references the
+package through `file:../../src`, so edits under `src` are compiled directly.
+
+Run the package tests from **Window > General > Test Runner > EditMode**. The suite covers runtime
+rules, drawers, inherited fields, recursive and `[SerializeReference]` validation, scene and prefab
+save enforcement, ScriptableObject assets and sub-assets, build processing, and Editor feedback.
+
+Issues and focused pull requests are welcome. When changing behavior, include a regression test and
+update the relevant documentation or showcase example.
+
+## License
+
+UValidation is available under the [MIT License](LICENSE).
