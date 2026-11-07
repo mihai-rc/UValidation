@@ -11,7 +11,7 @@ namespace UValidation.Editor
     {
         private const string k_AttributeName = nameof(NotEmptyAttribute);
         private const string k_AllowedTypeDescription = "strings or collections";
-        private const string k_ViolationMessage = "The value must not be empty.";
+        private const string k_ViolationMessage = "The field must not be empty.";
 
         /// <inheritdoc />
         protected override string AttributeName => k_AttributeName;
