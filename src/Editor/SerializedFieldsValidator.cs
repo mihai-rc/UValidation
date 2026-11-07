@@ -5,7 +5,6 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.Pool;
 
 namespace UValidation.Editor
 {
@@ -272,34 +271,15 @@ namespace UValidation.Editor
             Validation validation,
             ValidationTraversalState traversalState)
         {
-#if UNITY_6000_6_OR_NEWER
-            var ignoredEntries = dictionary.GetDictionaryIgnoredEntries();
-            var ignoredIndices = HashSetPool<int>.Get();
-            try
+            using var values = SerializedDictionaryAdapter.EnumerateEffectiveValues(dictionary);
+            while (values.MoveNext(out var value, out var entryIndex))
             {
-                ignoredIndices.UnionWith(ignoredEntries.duplicateEntryIndices);
-                ignoredIndices.UnionWith(ignoredEntries.nullKeyEntryIndices);
-
-                for (var i = 0; i < dictionary.arraySize; i++)
-                {
-                    if (ignoredIndices.Contains(i))
-                    {
-                        continue;
-                    }
-
-                    var entry = dictionary.GetArrayElementAtIndex(i);
-                    ValidateNestedSerializedObject(
-                        entry.FindPropertyRelative("value"),
-                        $"{dictionary.propertyPath}[{i}].Value",
-                        validation,
-                        traversalState);
-                }
+                ValidateNestedSerializedObject(
+                    value,
+                    $"{dictionary.propertyPath}[{entryIndex}].Value",
+                    validation,
+                    traversalState);
             }
-            finally
-            {
-                HashSetPool<int>.Release(ignoredIndices);
-            }
-#endif
         }
 
         private static void RunCustomValidation(IValidatable validatable, string objectPath, Validation validation)

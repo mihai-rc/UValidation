@@ -26,13 +26,7 @@ namespace UValidation.Editor
         /// <returns> Whether the type is a serialized dictionary container in this Unity version. </returns>
         internal static bool IsDictionary(Type type)
         {
-#if UNITY_6000_6_OR_NEWER
-            return type != null &&
-                   type.IsGenericType &&
-                   type.GetGenericTypeDefinition() == typeof(Dictionary<,>);
-#else
-            return false;
-#endif
+            return SerializedDictionaryAdapter.IsSupportedType(type);
         }
 
         /// <summary>

@@ -223,6 +223,11 @@ namespace UValidation.Tests
         [Test]
         public void Imgui_MessageText_UsesCurrentEditorThemeColor()
         {
+            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
+            {
+                Assert.Ignore("IMGUI style initialization requires a graphics device.");
+            }
+
             var style = ValidationMessageGui.GetMessageTextStyle();
 
             Assert.AreEqual(EditorStyles.label.normal.textColor, style.normal.textColor);

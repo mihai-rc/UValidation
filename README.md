@@ -28,6 +28,22 @@ Unity serialization.
 - The UI Toolkit Hierarchy integration uses Unity's official extension API and is available in
   Unity 6.6 and newer.
 
+### Unity version policy
+
+UValidation is developed against the latest production-ready Unity release. The sandbox project
+tracks that primary version, while the package's `unity` field defines the oldest compatibility
+version. New engine capabilities are supported where Unity provides them; they are not reimplemented
+for older releases.
+
+The release matrix has two lanes:
+
+- **Primary:** run the complete sandbox Edit Mode suite on the version declared by
+  `UValidationSandbox/ProjectSettings/ProjectVersion.txt`.
+- **Compatibility:** compile the package and run its core Edit Mode suite on Unity 6.3 LTS.
+
+The GitHub Actions workflow requires the `UNITY_LICENSE`, `UNITY_EMAIL`, and `UNITY_PASSWORD`
+repository secrets described by GameCI's Unity activation documentation.
+
 ## Installation
 
 ### Package Manager

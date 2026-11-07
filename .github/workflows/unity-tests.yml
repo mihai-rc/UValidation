@@ -1,0 +1,56 @@
+name: Unity version matrix
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  edit-mode-tests:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Primary Unity - full sandbox suite
+            projectPath: UValidationSandbox
+            unityVersion: auto
+            packageMode: false
+            artifactsPath: artifacts/primary
+          - name: Unity 6.3 LTS - package compatibility
+            projectPath: src
+            unityVersion: 6000.3.22f1
+            packageMode: true
+            artifactsPath: artifacts/unity-6.3
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run Edit Mode tests
+        id: tests
+        uses: game-ci/unity-test-runner@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: ${{ matrix.projectPath }}
+          unityVersion: ${{ matrix.unityVersion }}
+          packageMode: ${{ matrix.packageMode }}
+          testMode: editmode
+          artifactsPath: ${{ matrix.artifactsPath }}
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ steps.tests.outputs.artifactsPath }}
+          retention-days: 14

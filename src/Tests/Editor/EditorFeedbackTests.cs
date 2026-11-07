@@ -125,6 +125,11 @@ namespace UValidation.Tests
         [Test]
         public void HeaderFeedback_MessageHeight_IsReadable()
         {
+            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
+            {
+                Assert.Ignore("IMGUI style initialization requires a graphics device.");
+            }
+
             var height = ValidationMessageGui.GetHelpBoxHeight(
                 320.0f,
                 "Validation Failed: This object contains invalid data.");
