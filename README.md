@@ -99,15 +99,78 @@ public sealed class EnemyConfig : MonoBehaviour
 Invalid fields display an error in the Inspector. The owning component, GameObject, or asset also
 receives validation feedback in the relevant Editor window.
 
+## Editor feedback
+
+Validation failures appear beside the affected field in the Inspector. The owning GameObject and
+scene or asset are also labelled red in the Hierarchy and Project windows, making invalid content
+visible without opening every object. The screenshots below were captured in Unity 6.6.
+
+<img src="docs/images/validation-overview.png" width="775" alt="Unity 6.6 Editor showing validation messages in the Inspector and red invalid labels in the Hierarchy and Project windows">
+
 ## Attribute reference
 
-| Attribute | Supported serialized fields | Rule |
-| --- | --- | --- |
-| `[NotNull]` | `UnityEngine.Object` references | The reference must be assigned. Destroyed Unity objects count as null. |
-| `[NotEmpty]` | Strings, arrays, lists, and Unity 6.6+ dictionaries | The value must be non-null and contain at least one character or effective element. |
-| `[HasNoNulls]` | Arrays/lists of `UnityEngine.Object` references and Unity 6.6+ dictionaries with object values | No element or dictionary value may be null or destroyed. An empty collection passes. |
-| `[HasNoEmpties]` | Arrays/lists of strings and Unity 6.6+ dictionaries with string values | No element or dictionary value may be null or empty. An empty collection passes. |
-| `[IsValid]` | Serializable classes, structs, arrays, lists, Unity 6.6+ dictionary values, and supported `[SerializeReference]` values | Recursively validates the nested serialized data. Null objects and null or empty collections are skipped. |
+### `[NotNull]`
+
+Use `[NotNull]` for a serialized `UnityEngine.Object` reference that must be assigned, such as a
+target `Transform`, prefab, material, or configuration asset. A missing or destroyed Unity object
+fails validation.
+
+```csharp
+[SerializeField, NotNull] private Transform m_Target;
+```
+
+<img src="docs/images/not-null-inspector.png" width="411" alt="Unity Inspector showing a NotNull failure on an unassigned Transform">
+
+### `[NotEmpty]`
+
+Use `[NotEmpty]` for a string that must contain text or a collection that must contain at least one
+effective element. Typical examples are identifiers, display names, spawn-point lists, and lookup
+dictionaries that are not useful when empty.
+
+```csharp
+[SerializeField, NotEmpty] private string m_Id;
+```
+
+<img src="docs/images/not-empty-inspector.png" width="411" alt="Unity Inspector showing NotEmpty failures on empty strings and collections">
+
+### `[HasNoNulls]`
+
+Use `[HasNoNulls]` when every entry in a collection of `UnityEngine.Object` references must be
+assigned—for example, a list of prefabs that will all be instantiated. Arrays and lists are
+supported, as are Unity 6.6+ dictionaries with object-reference values. Empty collections pass;
+combine this attribute with `[NotEmpty]` when at least one entry is also required.
+
+```csharp
+[SerializeField, HasNoNulls] private List<GameObject> m_Prefabs = new();
+```
+
+<img src="docs/images/has-no-nulls-inspector.png" width="411" alt="Unity Inspector showing a HasNoNulls failure and the null collection element">
+
+### `[HasNoEmpties]`
+
+Use `[HasNoEmpties]` for a collection of strings where every entry must contain text, such as tags,
+localization keys, or item identifiers. Arrays and lists are supported, as are Unity 6.6+
+dictionaries with string values. Empty collections pass; add `[NotEmpty]` if the collection itself
+must also contain an entry.
+
+```csharp
+[SerializeField, HasNoEmpties] private List<string> m_Tags = new();
+```
+
+<img src="docs/images/has-no-empties-inspector.png" width="411" alt="Unity Inspector showing HasNoEmpties failures and an empty string element">
+
+### `[IsValid]`
+
+Use `[IsValid]` for nested serialized configuration whose own attributed fields and custom
+validation rules must pass. It supports serializable classes and structs, their arrays and lists,
+Unity 6.6+ dictionary values, and supported `[SerializeReference]` values. A summary message remains
+visible above a collapsed invalid field so the nested failure is easy to locate.
+
+```csharp
+[SerializeField, IsValid] private Stats m_Stats = new();
+```
+
+<img src="docs/images/is-valid-inspector.png" width="411" alt="Unity Inspector showing recursive IsValid failures and collapsed-field summaries">
 
 Combine collection attributes when the contract requires more than one guarantee. For example,
 `[NotEmpty, HasNoNulls]` requires at least one element and rejects null elements.
@@ -133,37 +196,6 @@ dictionary fields. Earlier Unity versions continue to treat dictionary fields as
 
 Unsupported attribute placements produce an Inspector warning instead of silently promising a rule
 that Unity cannot serialize or inspect.
-
-## Inspector examples
-
-The showcase scene pairs valid values with intentional failures and unsupported placements. Red
-messages identify invalid data; yellow messages explain attribute placements that Unity cannot
-validate.
-
-<table>
-  <tr>
-    <th><code>[NotNull]</code></th>
-    <th><code>[NotEmpty]</code></th>
-  </tr>
-  <tr>
-    <td><img src="docs/images/not-null-inspector.png" alt="Unity Inspector showing NotNull validation"></td>
-    <td><img src="docs/images/not-empty-inspector.png" alt="Unity Inspector showing NotEmpty validation"></td>
-  </tr>
-  <tr>
-    <th><code>[HasNoNulls]</code></th>
-    <th><code>[HasNoEmpties]</code></th>
-  </tr>
-  <tr>
-    <td><img src="docs/images/has-no-nulls-inspector.png" alt="Unity Inspector showing HasNoNulls validation"></td>
-    <td><img src="docs/images/has-no-empties-inspector.png" alt="Unity Inspector showing HasNoEmpties validation"></td>
-  </tr>
-  <tr>
-    <th colspan="2"><code>[IsValid]</code></th>
-  </tr>
-  <tr>
-    <td colspan="2" align="center"><img src="docs/images/is-valid-inspector.png" width="507" alt="Unity Inspector showing recursive IsValid validation"></td>
-  </tr>
-</table>
 
 ## Recursive validation
 
