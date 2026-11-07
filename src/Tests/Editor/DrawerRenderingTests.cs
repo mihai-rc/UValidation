@@ -19,7 +19,7 @@ namespace UValidation.Tests
         private const string k_ValidValue = "Configured";
         private const string k_ViolationMessage = "The value must not be empty.";
         private const float k_MessageIconSize = 32.0f;
-        private const float k_MinimumMessageHeight = 40.0f;
+        private const float k_MinimumMessageHeight = 36.0f;
 
         private static readonly Type[] s_RegisteredDrawerTypes =
         {
@@ -46,6 +46,8 @@ namespace UValidation.Tests
                 Assert.AreEqual(k_ViolationMessage, helpBox.text);
                 Assert.GreaterOrEqual(helpBox.style.minHeight.value.value, k_MinimumMessageHeight);
                 Assert.AreEqual(Align.Center, helpBox.style.alignItems.value);
+                Assert.AreEqual(ValidationMessageGui.VerticalPadding, helpBox.style.paddingTop.value.value);
+                Assert.AreEqual(ValidationMessageGui.VerticalPadding, helpBox.style.paddingBottom.value.value);
 
                 var icon = helpBox.Q(className: HelpBox.iconUssClassName);
                 Assert.IsNotNull(icon);
@@ -324,6 +326,62 @@ namespace UValidation.Tests
         }
 
         [UnityTest]
+        public IEnumerator UiToolkit_InvalidCollectionElement_ShrinksWithinNarrowInspector()
+        {
+            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
+            {
+                Assert.Ignore("UI Toolkit EditorWindow rendering requires a graphics device.");
+            }
+
+            var target = ScriptableObject.CreateInstance<ObjectCollectionProbe>();
+            var window = ScriptableObject.CreateInstance<UiToolkitTestWindow>();
+            try
+            {
+                using var serializedObject = new SerializedObject(target);
+                var property = serializedObject.FindProperty("m_Values");
+                property.isExpanded = true;
+                var root = CreateSupportedCollectionDrawer(property);
+                root.Bind(serializedObject);
+
+                window.Configure(root);
+                window.position = new Rect(0.0f, 0.0f, 300.0f, 300.0f);
+                window.Show();
+
+                ObjectField objectField = null;
+                Image errorIcon = null;
+                for (var frame = 0; frame < 10 && (objectField == null || errorIcon == null); frame++)
+                {
+                    window.Repaint();
+                    yield return null;
+                    objectField = root.Q<ObjectField>();
+                    errorIcon = root.Q<Image>("validation-element-error-icon");
+                }
+
+                for (var frame = 0; frame < 3; frame++)
+                {
+                    window.Repaint();
+                    yield return null;
+                }
+
+                Assert.IsNotNull(objectField);
+                Assert.IsNotNull(errorIcon);
+                var elementLabel = objectField.hierarchy[0] as Label;
+                Assert.IsNotNull(elementLabel);
+                Assert.GreaterOrEqual(elementLabel.resolvedStyle.width, 40.0f);
+                Assert.AreEqual(0.0f, errorIcon.resolvedStyle.flexGrow);
+                Assert.AreEqual(0.0f, errorIcon.resolvedStyle.flexShrink);
+                Assert.LessOrEqual(objectField.worldBound.xMax, root.worldBound.xMax + 0.5f);
+                Assert.LessOrEqual(objectField.parent.worldBound.xMax, root.worldBound.xMax + 0.5f);
+            }
+            finally
+            {
+                window.Close();
+                UnityEngine.Object.DestroyImmediate(window);
+                UnityEngine.Object.DestroyImmediate(target);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator Imgui_UnsupportedCollection_DoesNotValidateElements()
         {
             if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
@@ -513,6 +571,18 @@ namespace UValidation.Tests
                     handleElementValidation();
                     return element.objectReferenceValue != null;
                 });
+        }
+
+        private static VisualElement CreateSupportedCollectionDrawer(SerializedProperty property)
+        {
+            return FieldDrawerHelper.CreatePropertyGUI(
+                property,
+                nameof(HasNoNullsAttribute),
+                "collections of UnityEngine.Object references",
+                "The collection must not contain null object references.",
+                _ => true,
+                _ => false,
+                element => element.objectReferenceValue != null);
         }
 
         private static bool IsNotEmpty(SerializedProperty property)

@@ -10,14 +10,13 @@ namespace UValidation.Editor
     {
         private const float k_HorizontalPadding = 8.0f;
         private const float k_IconSpacing = 8.0f;
-        private const float k_VerticalPadding = 4.0f;
-
         private static GUIStyle s_MessageTextStyle;
         private static bool s_StyleUsesProSkin;
 
         internal const int FontSize = 12;
         internal const float IconSize = 32.0f;
-        internal const float MinimumHeight = 40.0f;
+        internal const float MinimumHeight = 36.0f;
+        internal const float VerticalPadding = 2.0f;
 
         /// <summary>
         /// Draws a validation HelpBox with readable IMGUI text and a full-size severity icon.
@@ -48,7 +47,7 @@ namespace UValidation.Editor
 
             return Mathf.Max(
                 MinimumHeight,
-                textHeight + k_VerticalPadding * 2.0f);
+                textHeight + VerticalPadding * 2.0f);
         }
 
         /// <summary>
@@ -67,9 +66,9 @@ namespace UValidation.Editor
 
             textRect = new Rect(
                 iconRect.xMax + k_IconSpacing,
-                position.y + k_VerticalPadding,
+                position.y + VerticalPadding,
                 Mathf.Max(0.0f, position.xMax - k_HorizontalPadding - iconRect.xMax - k_IconSpacing),
-                Mathf.Max(0.0f, position.height - k_VerticalPadding * 2.0f));
+                Mathf.Max(0.0f, position.height - VerticalPadding * 2.0f));
         }
 
         private static Texture GetIcon(MessageType messageType)

@@ -342,6 +342,8 @@ namespace UValidation.Editor
             helpBox.style.width = Length.Percent(100.0f);
             helpBox.style.marginLeft = 0.0f;
             helpBox.style.marginRight = 0.0f;
+            helpBox.style.paddingTop = ValidationMessageGui.VerticalPadding;
+            helpBox.style.paddingBottom = ValidationMessageGui.VerticalPadding;
 
             var icon = helpBox.Q(className: HelpBox.iconUssClassName);
             if (icon != null)
@@ -416,6 +418,7 @@ namespace UValidation.Editor
                     continue;
                 }
 
+                ConfigureElementFieldLayout(elementField);
                 if (icon != null)
                 {
                     continue;
@@ -432,19 +435,30 @@ namespace UValidation.Editor
                 icon.style.height = 16.0f;
                 icon.style.marginRight = 4.0f;
                 icon.style.flexShrink = 0.0f;
-                elementField.style.flexDirection = FlexDirection.Row;
-                elementField.style.alignItems = Align.Center;
-                elementField.style.flexGrow = 1.0f;
-                elementField.style.alignSelf = Align.Stretch;
-                elementField.style.width = Length.Percent(100.0f);
+                elementField.Insert(0, icon);
+            }
+        }
 
-                foreach (var child in elementField.Children())
+        private static void ConfigureElementFieldLayout(PropertyField elementField)
+        {
+            elementField.style.flexDirection = FlexDirection.Row;
+            elementField.style.alignItems = Align.Center;
+            elementField.style.flexGrow = 1.0f;
+            elementField.style.flexShrink = 1.0f;
+            elementField.style.alignSelf = Align.Stretch;
+            elementField.style.width = Length.Percent(100.0f);
+            elementField.style.minWidth = 0.0f;
+
+            foreach (var child in elementField.Children())
+            {
+                if (child.name == k_ElementErrorIconName)
                 {
-                    child.style.flexGrow = 1.0f;
-                    child.style.minWidth = 0.0f;
+                    continue;
                 }
 
-                elementField.Insert(0, icon);
+                child.style.flexGrow = 1.0f;
+                child.style.flexShrink = 1.0f;
+                child.style.minWidth = 0.0f;
             }
         }
 
