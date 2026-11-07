@@ -99,6 +99,37 @@ Combine collection attributes when the contract requires more than one guarantee
 Unsupported attribute placements produce an Inspector warning instead of silently promising a rule
 that Unity cannot serialize or inspect.
 
+## Inspector examples
+
+The showcase scene pairs valid values with intentional failures and unsupported placements. Red
+messages identify invalid data; yellow messages explain attribute placements that Unity cannot
+validate.
+
+<table>
+  <tr>
+    <th><code>[NotNull]</code></th>
+    <th><code>[NotEmpty]</code></th>
+  </tr>
+  <tr>
+    <td><img src="docs/images/not-null-inspector.png" alt="Unity Inspector showing NotNull validation"></td>
+    <td><img src="docs/images/not-empty-inspector.png" alt="Unity Inspector showing NotEmpty validation"></td>
+  </tr>
+  <tr>
+    <th><code>[HasNoNulls]</code></th>
+    <th><code>[HasNoEmpties]</code></th>
+  </tr>
+  <tr>
+    <td><img src="docs/images/has-no-nulls-inspector.png" alt="Unity Inspector showing HasNoNulls validation"></td>
+    <td><img src="docs/images/has-no-empties-inspector.png" alt="Unity Inspector showing HasNoEmpties validation"></td>
+  </tr>
+  <tr>
+    <th colspan="2"><code>[IsValid]</code></th>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="docs/images/is-valid-inspector.png" width="507" alt="Unity Inspector showing recursive IsValid validation"></td>
+  </tr>
+</table>
+
 ## Recursive validation
 
 Use `[IsValid]` on an inline custom serializable class or struct, or on an array or `List<T>` whose
