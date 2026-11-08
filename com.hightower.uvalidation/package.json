@@ -6,7 +6,7 @@
   "unity": "6000.3",
   "license": "MIT",
   "documentationUrl": "https://github.com/mihai-rc/UValidation#readme",
-  "changelogUrl": "https://github.com/mihai-rc/UValidation/blob/main/src/CHANGELOG.md",
+  "changelogUrl": "https://github.com/mihai-rc/UValidation/blob/main/com.hightower.uvalidation/CHANGELOG.md",
   "licensesUrl": "https://github.com/mihai-rc/UValidation/blob/main/LICENSE",
   "keywords": [
     "validation",

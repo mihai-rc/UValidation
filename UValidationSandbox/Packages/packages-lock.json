@@ -54,7 +54,7 @@
       }
     },
     "com.hightower.uvalidation": {
-      "version": "file:../../src",
+      "version": "file:../../com.hightower.uvalidation",
       "depth": 0,
       "source": "local",
       "dependencies": {}

@@ -45,7 +45,7 @@ Then open **Window > Package Manager**, select **Install package by name**, ente
 To install the first release directly from GitHub, select **Install package from git URL** and enter:
 
 ```text
-https://github.com/mihai-rc/UValidation.git?path=/src#v0.0.1
+https://github.com/mihai-rc/UValidation.git?path=/com.hightower.uvalidation#v0.0.1
 ```
 
 The equivalent `Packages/manifest.json` dependency is:
@@ -53,7 +53,7 @@ The equivalent `Packages/manifest.json` dependency is:
 ```json
 {
   "dependencies": {
-    "com.hightower.uvalidation": "https://github.com/mihai-rc/UValidation.git?path=/src#v0.0.1"
+    "com.hightower.uvalidation": "https://github.com/mihai-rc/UValidation.git?path=/com.hightower.uvalidation#v0.0.1"
   }
 }
 ```
@@ -369,7 +369,8 @@ The examples intentionally contain both valid and invalid values. See
 ## Development and tests
 
 Clone the repository and open `UValidationSandbox` in Unity. Its project manifest references the
-package through `file:../../src`, so edits under `src` are compiled directly.
+package through `file:../../com.hightower.uvalidation`, so edits under
+`com.hightower.uvalidation` are compiled directly.
 
 Run the package tests from **Window > General > Test Runner > EditMode**. The suite covers runtime
 rules, drawers, inherited fields, recursive and `[SerializeReference]` validation, scene and prefab

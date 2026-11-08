@@ -23,7 +23,7 @@ jobs:
       - name: Validate package contents
         shell: pwsh
         run: |
-          $package = Get-Content -LiteralPath src/package.json -Raw | ConvertFrom-Json
+          $package = Get-Content -LiteralPath com.hightower.uvalidation/package.json -Raw | ConvertFrom-Json
 
           if ($package.name -ne "com.hightower.uvalidation") {
               throw "Unexpected package name: $($package.name)"
@@ -38,8 +38,8 @@ jobs:
           }
 
           $requiredFiles = @(
-              "src/CHANGELOG.md",
-              "src/LICENSE.md"
+              "com.hightower.uvalidation/CHANGELOG.md",
+              "com.hightower.uvalidation/LICENSE.md"
           )
 
           foreach ($requiredFile in $requiredFiles) {
@@ -49,20 +49,20 @@ jobs:
           }
 
           $rootLicense = (Get-Content -LiteralPath LICENSE -Raw) -replace "`r`n", "`n"
-          $packageLicense = (Get-Content -LiteralPath src/LICENSE.md -Raw) -replace "`r`n", "`n"
+          $packageLicense = (Get-Content -LiteralPath com.hightower.uvalidation/LICENSE.md -Raw) -replace "`r`n", "`n"
 
           if ($rootLicense -cne $packageLicense) {
               throw "The root and package license files are out of sync."
           }
 
-          $changelog = Get-Content -LiteralPath src/CHANGELOG.md -Raw
+          $changelog = Get-Content -LiteralPath com.hightower.uvalidation/CHANGELOG.md -Raw
           $versionHeading = "## [$($package.version)]"
 
           if (-not $changelog.Contains($versionHeading)) {
               throw "The changelog does not contain $versionHeading."
           }
 
-          $packageFiles = Get-ChildItem -LiteralPath src -Recurse -File |
+          $packageFiles = Get-ChildItem -LiteralPath com.hightower.uvalidation -Recurse -File |
               Where-Object Extension -ne ".meta"
 
           foreach ($packageFile in $packageFiles) {
@@ -71,7 +71,7 @@ jobs:
               }
           }
 
-          $guids = Get-ChildItem -LiteralPath src -Recurse -Filter *.meta |
+          $guids = Get-ChildItem -LiteralPath com.hightower.uvalidation -Recurse -Filter *.meta |
               Select-String -Pattern '^guid: ([0-9a-f]{32})$' |
               ForEach-Object { $_.Matches[0].Groups[1].Value }
           $duplicateGuids = $guids | Group-Object | Where-Object Count -gt 1
@@ -99,7 +99,7 @@ jobs:
             packageMode: false
             artifactsPath: artifacts/primary
           - name: Unity 6.3 - package compatibility
-            projectPath: src
+            projectPath: com.hightower.uvalidation
             unityVersion: 6000.3.22f1
             packageMode: true
             artifactsPath: artifacts/unity-6.3
