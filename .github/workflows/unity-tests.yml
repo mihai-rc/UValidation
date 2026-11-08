@@ -10,8 +10,83 @@ permissions:
   checks: write
 
 jobs:
+  package-validation:
+    name: Package metadata
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Validate package contents
+        shell: pwsh
+        run: |
+          $package = Get-Content -LiteralPath src/package.json -Raw | ConvertFrom-Json
+
+          if ($package.name -ne "com.hightower.uvalidation") {
+              throw "Unexpected package name: $($package.name)"
+          }
+
+          if ($package.version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z.-]+)?$') {
+              throw "Invalid semantic version: $($package.version)"
+          }
+
+          if ($package.license -ne "MIT") {
+              throw "The package must declare the MIT license."
+          }
+
+          $requiredFiles = @(
+              "src/CHANGELOG.md",
+              "src/LICENSE.md"
+          )
+
+          foreach ($requiredFile in $requiredFiles) {
+              if (-not (Test-Path -LiteralPath $requiredFile)) {
+                  throw "Required package file is missing: $requiredFile"
+              }
+          }
+
+          $rootLicense = (Get-Content -LiteralPath LICENSE -Raw) -replace "`r`n", "`n"
+          $packageLicense = (Get-Content -LiteralPath src/LICENSE.md -Raw) -replace "`r`n", "`n"
+
+          if ($rootLicense -cne $packageLicense) {
+              throw "The root and package license files are out of sync."
+          }
+
+          $changelog = Get-Content -LiteralPath src/CHANGELOG.md -Raw
+          $versionHeading = "## [$($package.version)]"
+
+          if (-not $changelog.Contains($versionHeading)) {
+              throw "The changelog does not contain $versionHeading."
+          }
+
+          $packageFiles = Get-ChildItem -LiteralPath src -Recurse -File |
+              Where-Object Extension -ne ".meta"
+
+          foreach ($packageFile in $packageFiles) {
+              if (-not (Test-Path -LiteralPath "$($packageFile.FullName).meta")) {
+                  throw "Missing .meta file for $($packageFile.FullName)"
+              }
+          }
+
+          $guids = Get-ChildItem -LiteralPath src -Recurse -Filter *.meta |
+              Select-String -Pattern '^guid: ([0-9a-f]{32})$' |
+              ForEach-Object { $_.Matches[0].Groups[1].Value }
+          $duplicateGuids = $guids | Group-Object | Where-Object Count -gt 1
+
+          if ($duplicateGuids) {
+              $duplicates = ($duplicateGuids.Name -join ", ")
+              throw "Duplicate package GUIDs: $duplicates"
+          }
+
+          Write-Output "Validated $($package.name)@$($package.version)."
+
   edit-mode-tests:
     name: ${{ matrix.name }}
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    needs: package-validation
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -23,7 +98,7 @@ jobs:
             unityVersion: auto
             packageMode: false
             artifactsPath: artifacts/primary
-          - name: Unity 6.3 LTS - package compatibility
+          - name: Unity 6.3 - package compatibility
             projectPath: src
             unityVersion: 6000.3.22f1
             packageMode: true
@@ -31,11 +106,13 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Run Edit Mode tests
         id: tests
-        uses: game-ci/unity-test-runner@v4
+        uses: game-ci/unity-test-runner@32e57712352b500e17974b245a6dce9e11a73213 # v4
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
@@ -50,7 +127,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ matrix.name }}
           path: ${{ steps.tests.outputs.artifactsPath }}

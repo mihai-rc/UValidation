@@ -15,7 +15,7 @@ namespace UValidation.Editor
     internal static class HierarchyV2ValidationFeedback
     {
         private const string k_InvalidLabelClass = "uvalidation-invalid-hierarchy-label";
-        private const string k_StyleSheetPath = "Packages/com.uvalidation.validation/Editor/HierarchyV2ValidationFeedback.uss";
+        private const string k_StyleSheetPath = "Packages/com.hightower.uvalidation/Editor/HierarchyV2ValidationFeedback.uss";
 
         private static readonly HashSet<HierarchyView> s_BoundViews = new();
 

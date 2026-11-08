@@ -1,10 +1,21 @@
 {
-  "name": "com.uvalidation.validation",
-  "version": "0.1.0",
+  "name": "com.hightower.uvalidation",
+  "version": "0.0.1",
   "displayName": "UValidation",
   "description": "Inspector and runtime validation utilities for Unity.",
   "unity": "6000.3",
+  "license": "MIT",
+  "documentationUrl": "https://github.com/mihai-rc/UValidation#readme",
+  "changelogUrl": "https://github.com/mihai-rc/UValidation/blob/main/src/CHANGELOG.md",
+  "licensesUrl": "https://github.com/mihai-rc/UValidation/blob/main/LICENSE",
+  "keywords": [
+    "validation",
+    "inspector",
+    "serialization",
+    "editor"
+  ],
   "author": {
-    "name": "UValidation"
+    "name": "Robert-Mihai Craciun (mihai-rc)",
+    "url": "https://github.com/mihai-rc"
   }
 }

@@ -27,22 +27,33 @@ The intention behind this library was historically to reduce the iteration time 
 
 - Unity 6.3 or newer.
 
-### Package Manager
+### OpenUPM
 
-In Unity, open **Window > Package Manager**, select **Install package from git URL**, and enter:
+Open **Edit > Project Settings > Package Manager** and add this scoped registry:
+
+| Field | Value |
+| --- | --- |
+| Name | `OpenUPM` |
+| URL | `https://package.openupm.com` |
+| Scope | `com.hightower` |
+
+Then open **Window > Package Manager**, select **Install package by name**, enter
+`com.hightower.uvalidation`, and leave the version empty to install the latest published release.
+
+### Git tag
+
+To install the first release directly from GitHub, select **Install package from git URL** and enter:
 
 ```text
-https://github.com/mihai-rc/UValidation.git?path=/src
+https://github.com/mihai-rc/UValidation.git?path=/src#v0.0.1
 ```
 
-### Project manifest
-
-Alternatively, add the package directly to your project's `Packages/manifest.json`:
+The equivalent `Packages/manifest.json` dependency is:
 
 ```json
 {
   "dependencies": {
-    "com.uvalidation.validation": "https://github.com/mihai-rc/UValidation.git?path=/src"
+    "com.hightower.uvalidation": "https://github.com/mihai-rc/UValidation.git?path=/src#v0.0.1"
   }
 }
 ```
