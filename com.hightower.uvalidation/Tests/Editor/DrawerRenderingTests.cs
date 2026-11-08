@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditorInternal;
@@ -21,13 +20,13 @@ namespace UValidation.Tests
         private const float k_MessageIconSize = 32.0f;
         private const float k_MinimumMessageHeight = 36.0f;
 
-        private static readonly Type[] s_RegisteredDrawerTypes =
+        private static readonly (string PropertyName, string ViolationMessage)[] s_DrawerExpectations =
         {
-            typeof(NotNullFieldDrawer),
-            typeof(NotEmptyFieldDrawer),
-            typeof(HasNoNullsFieldDrawer),
-            typeof(HasNoEmptiesFieldDrawer),
-            typeof(IsValidFieldDrawer)
+            ("m_NotNull", "An object reference must be assigned."),
+            ("m_NotEmpty", "The field must not be empty."),
+            ("m_HasNoNulls", "The collection must not contain null object references."),
+            ("m_HasNoEmpties", "The collection must not contain null or empty strings."),
+            ("m_IsValid", "Nested values must satisfy their validation rules.")
         };
 
         [Test]
@@ -136,21 +135,23 @@ namespace UValidation.Tests
         }
 
         [UnityTest]
-        public IEnumerator Imgui_InvalidProperty_AllocatesAdditionalMessageHeight()
+        public IEnumerator Imgui_RegisteredDrawers_InvalidPropertiesAllocateAdditionalMessageHeight()
         {
             if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
             {
                 Assert.Ignore("IMGUI EditorWindow rendering requires a graphics device.");
             }
 
-            var target = CreateProbe(string.Empty);
+            var invalidTarget = ScriptableObject.CreateInstance<RegisteredDrawerProbe>();
+            var validTarget = ScriptableObject.CreateInstance<RegisteredDrawerProbe>();
+            var assigned = new GameObject("assigned-drawer-reference");
             var window = ScriptableObject.CreateInstance<ImguiTestWindow>();
             try
             {
-                using var serializedObject = new SerializedObject(target);
-                var property = serializedObject.FindProperty("m_Value");
-                var invalidHeight = 0.0f;
-                var validHeight = 0.0f;
+                validTarget.SetValidValues(assigned);
+                using var invalidSerialized = new SerializedObject(invalidTarget);
+                using var validSerialized = new SerializedObject(validTarget);
+                var heightDifferences = new float[s_DrawerExpectations.Length];
                 var hasRendered = false;
                 Exception renderingException = null;
 
@@ -163,12 +164,29 @@ namespace UValidation.Tests
 
                     try
                     {
-                        serializedObject.Update();
-                        invalidHeight = EditorGUI.GetPropertyHeight(property, GUIContent.none, true);
+                        invalidSerialized.Update();
+                        validSerialized.Update();
 
-                        target.SetValue(k_ValidValue);
-                        serializedObject.Update();
-                        validHeight = EditorGUI.GetPropertyHeight(property, GUIContent.none, true);
+                        for (var i = 0; i < s_DrawerExpectations.Length; i++)
+                        {
+                            var propertyName = s_DrawerExpectations[i].PropertyName;
+                            var invalidProperty = invalidSerialized.FindProperty(propertyName);
+                            var validProperty = validSerialized.FindProperty(propertyName);
+                            Assert.IsNotNull(invalidProperty, propertyName);
+                            Assert.IsNotNull(validProperty, propertyName);
+
+                            var invalidHeight = EditorGUI.GetPropertyHeight(
+                                invalidProperty,
+                                GUIContent.none,
+                                true);
+
+                            var validHeight = EditorGUI.GetPropertyHeight(
+                                validProperty,
+                                GUIContent.none,
+                                true);
+
+                            heightDifferences[i] = invalidHeight - validHeight;
+                        }
                     }
                     catch (Exception exception)
                     {
@@ -189,16 +207,22 @@ namespace UValidation.Tests
 
                 Assert.IsTrue(hasRendered, "The IMGUIContainer did not receive an OnGUI event.");
                 Assert.IsNull(renderingException);
-                Assert.GreaterOrEqual(
-                    invalidHeight - validHeight,
-                    k_MinimumMessageHeight,
-                    "The validation message should receive a readable minimum height.");
+
+                for (var i = 0; i < s_DrawerExpectations.Length; i++)
+                {
+                    Assert.GreaterOrEqual(
+                        heightDifferences[i],
+                        k_MinimumMessageHeight,
+                        $"The '{s_DrawerExpectations[i].PropertyName}' drawer should reserve readable message height.");
+                }
             }
             finally
             {
                 window.Close();
                 UnityEngine.Object.DestroyImmediate(window);
-                UnityEngine.Object.DestroyImmediate(target);
+                UnityEngine.Object.DestroyImmediate(invalidTarget);
+                UnityEngine.Object.DestroyImmediate(validTarget);
+                UnityEngine.Object.DestroyImmediate(assigned);
             }
         }
 
@@ -517,29 +541,93 @@ namespace UValidation.Tests
             }
         }
 
-        [Test]
-        public void RenderingContract_EveryDrawerUsesSharedDualPathBase()
+        [UnityTest]
+        public IEnumerator UiToolkit_RegisteredDrawers_ReflectInvalidAndValidValues()
         {
-            const BindingFlags declaredPublicInstance =
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly;
-
-            Assert.IsNotNull(typeof(ValidationFieldDrawer).GetMethod(
-                nameof(PropertyDrawer.CreatePropertyGUI),
-                declaredPublicInstance));
-
-            Assert.IsNotNull(typeof(ValidationFieldDrawer).GetMethod(
-                nameof(PropertyDrawer.OnGUI),
-                declaredPublicInstance));
-
-            Assert.IsNotNull(typeof(ValidationFieldDrawer).GetMethod(
-                nameof(PropertyDrawer.GetPropertyHeight),
-                declaredPublicInstance));
-
-            foreach (var drawerType in s_RegisteredDrawerTypes)
+            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
             {
-                Assert.IsTrue(drawerType.IsSubclassOf(typeof(ValidationFieldDrawer)), drawerType.Name);
-                Assert.IsNotNull(drawerType.GetCustomAttribute<CustomPropertyDrawer>(), drawerType.Name);
+                Assert.Ignore("UI Toolkit EditorWindow rendering requires a graphics device.");
             }
+
+            var invalidTarget = ScriptableObject.CreateInstance<RegisteredDrawerProbe>();
+            var validTarget = ScriptableObject.CreateInstance<RegisteredDrawerProbe>();
+            var assigned = new GameObject("assigned-drawer-reference");
+            var window = ScriptableObject.CreateInstance<UiToolkitTestWindow>();
+            try
+            {
+                validTarget.SetValidValues(assigned);
+                using var invalidSerialized = new SerializedObject(invalidTarget);
+                using var validSerialized = new SerializedObject(validTarget);
+                var invalidFields = new List<PropertyField>();
+                var validFields = new List<PropertyField>();
+                var invalidContainer = CreateRegisteredDrawerFields(invalidSerialized, invalidFields);
+                var validContainer = CreateRegisteredDrawerFields(validSerialized, validFields);
+                var root = new VisualElement();
+                root.Add(invalidContainer);
+                root.Add(validContainer);
+
+                window.Configure(root);
+                window.position = new Rect(0.0f, 0.0f, 520.0f, 760.0f);
+                window.Show();
+
+                var fieldsBound = false;
+                for (var frame = 0; frame < 20 && !fieldsBound; frame++)
+                {
+                    window.Repaint();
+                    yield return null;
+                    fieldsBound = EveryFieldHasHelpBox(invalidFields) && EveryFieldHasHelpBox(validFields);
+                }
+
+                Assert.IsTrue(fieldsBound, "Unity did not create every registered validation drawer.");
+                for (var i = 0; i < s_DrawerExpectations.Length; i++)
+                {
+                    var invalidHelpBox = invalidFields[i].Q<HelpBox>();
+                    var validHelpBox = validFields[i].Q<HelpBox>();
+
+                    Assert.AreEqual(DisplayStyle.Flex, invalidHelpBox.style.display.value);
+                    Assert.AreEqual(s_DrawerExpectations[i].ViolationMessage, invalidHelpBox.text);
+                    Assert.AreEqual(DisplayStyle.None, validHelpBox.style.display.value);
+                }
+            }
+            finally
+            {
+                window.Close();
+                UnityEngine.Object.DestroyImmediate(window);
+                UnityEngine.Object.DestroyImmediate(invalidTarget);
+                UnityEngine.Object.DestroyImmediate(validTarget);
+                UnityEngine.Object.DestroyImmediate(assigned);
+            }
+        }
+
+        private static VisualElement CreateRegisteredDrawerFields(
+            SerializedObject serializedObject,
+            List<PropertyField> fields)
+        {
+            var container = new VisualElement();
+            foreach (var expectation in s_DrawerExpectations)
+            {
+                var property = serializedObject.FindProperty(expectation.PropertyName);
+                Assert.IsNotNull(property, expectation.PropertyName);
+                var field = new PropertyField(property);
+                fields.Add(field);
+                container.Add(field);
+            }
+
+            container.Bind(serializedObject);
+            return container;
+        }
+
+        private static bool EveryFieldHasHelpBox(List<PropertyField> fields)
+        {
+            foreach (var field in fields)
+            {
+                if (field.Q<HelpBox>() == null)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static ScriptableObjectValidationProbe CreateProbe(string value)
@@ -637,6 +725,35 @@ namespace UValidation.Tests
         private sealed class ObjectCollectionProbe : ScriptableObject
         {
             [SerializeField] private GameObject[] m_Values = { null };
+        }
+
+        [Serializable]
+        private sealed class RegisteredDrawerNestedData
+        {
+            [SerializeField, NotEmpty] private string m_Value = string.Empty;
+
+            internal void SetValidValue()
+            {
+                m_Value = k_ValidValue;
+            }
+        }
+
+        private sealed class RegisteredDrawerProbe : ScriptableObject
+        {
+            [SerializeField, NotNull] private GameObject m_NotNull;
+            [SerializeField, NotEmpty] private string m_NotEmpty = string.Empty;
+            [SerializeField, HasNoNulls] private GameObject[] m_HasNoNulls = { null };
+            [SerializeField, HasNoEmpties] private string[] m_HasNoEmpties = { string.Empty };
+            [SerializeField, IsValid] private RegisteredDrawerNestedData m_IsValid = new();
+
+            internal void SetValidValues(GameObject assigned)
+            {
+                m_NotNull = assigned;
+                m_NotEmpty = k_ValidValue;
+                m_HasNoNulls = new[] { assigned };
+                m_HasNoEmpties = new[] { k_ValidValue };
+                m_IsValid.SetValidValue();
+            }
         }
     }
 }

@@ -534,18 +534,19 @@ namespace UValidation.Tests
             }
         }
 
-        private class CycleNode
+        [Serializable]
+        private sealed class CycleNode
         {
-            [IsValid] public CycleNode Next;
+            [SerializeReference, IsValid] public CycleNode Next;
         }
 
-        private class CycleHost : MonoBehaviour
+        private sealed class CycleHost : MonoBehaviour
         {
-            [IsValid] public CycleNode Root;
+            [SerializeReference, IsValid] public CycleNode Root;
         }
 
         [Test]
-        public void Cyclic_IsValid_Graph_Terminates()
+        public void IsValid_ObjectCycle_Terminates()
         {
             var a = new CycleNode();
             var b = new CycleNode();
@@ -560,6 +561,9 @@ namespace UValidation.Tests
 
                 using var validation = new Validation(host);
                 SerializedFieldsValidator.ValidateAttributes(host, validation);
+
+                Assert.IsTrue(validation.Passed);
+                LogAssert.NoUnexpectedReceived();
             }
             finally
             {

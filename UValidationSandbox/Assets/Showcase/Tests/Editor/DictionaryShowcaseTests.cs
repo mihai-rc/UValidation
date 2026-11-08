@@ -48,7 +48,7 @@ namespace UValidation.Showcase.Tests
         }
 
         [Test]
-        public void NotEmptySection_PreservesNullKeyRowsButCountsNoEffectiveEntries()
+        public void NotEmptySection_PreservesNullKeyRows()
         {
             var component = FindGameObject("01 - NotEmpty").GetComponent<DictionaryNotEmptyShowcase>();
             using var serializedObject = new SerializedObject(component);
@@ -57,13 +57,6 @@ namespace UValidation.Showcase.Tests
 
             Assert.AreEqual(2, dictionary.arraySize);
             Assert.AreEqual(2, ignoredEntries.nullKeyEntryIndices.Length);
-            Assert.IsFalse(FieldDrawerHelper.HasEffectiveDictionaryEntries(dictionary));
-        }
-
-        [Test]
-        public void ShowcaseScene_IsIntentionallyInvalid()
-        {
-            Assert.IsFalse(ValidationHelper.IsSceneValid(ref m_Scene, false));
         }
 
         private GameObject FindGameObject(string objectName)

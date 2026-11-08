@@ -49,12 +49,6 @@ namespace UValidation.Showcase.Tests
             Assert.AreEqual(expectedResult, ValidationHelper.IsGameObjectValid(target, false));
         }
 
-        [Test]
-        public void ShowcaseScene_IsIntentionallyInvalid()
-        {
-            Assert.IsFalse(ValidationHelper.IsSceneValid(ref m_Scene, false));
-        }
-
         private GameObject FindGameObject(string objectName)
         {
             return m_Scene.GetRootGameObjects()

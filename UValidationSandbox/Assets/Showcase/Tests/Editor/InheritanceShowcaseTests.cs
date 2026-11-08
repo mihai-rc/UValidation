@@ -26,7 +26,7 @@ namespace UValidation.Showcase.Tests
         /// <summary>
         /// Opens the saved examples in an isolated preview scene.
         /// </summary>
-        [SetUp]
+        [OneTimeSetUp]
         public void SetUp()
         {
             var paths = AssetDatabase.FindAssets("ValidationInheritanceShowcase t:Scene", new[] { "Assets" })
@@ -42,7 +42,7 @@ namespace UValidation.Showcase.Tests
         /// <summary>
         /// Closes the preview without replacing or saving the user's scenes.
         /// </summary>
-        [TearDown]
+        [OneTimeTearDown]
         public void TearDown()
         {
             if (m_Scene.IsValid())

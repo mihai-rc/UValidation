@@ -42,6 +42,8 @@ namespace UValidation.Editor.Tests
         private sealed class ObjectKeyHost : ScriptableObject
         {
             [SerializeField, NotEmpty] private Dictionary<GameObject, string> m_Values = new();
+
+            public Dictionary<GameObject, string> Values => m_Values;
         }
 
         private sealed class ObjectKeysAndValuesHost : ScriptableObject
@@ -230,49 +232,68 @@ namespace UValidation.Editor.Tests
         }
 
         [Test]
-        public void DictionaryDrawerPredicates_ValidateValuesInsteadOfEntries()
+        public void DictionaryDrawerPredicates_DistinguishValidAndInvalidValues()
         {
             var objectHost = ScriptableObject.CreateInstance<ObjectValuesHost>();
             var stringHost = ScriptableObject.CreateInstance<StringValuesHost>();
+            var assigned = new GameObject("assigned-dictionary-value");
             try
             {
-                objectHost.Values.Add("missing", null);
-                stringHost.Values.Add(1, string.Empty);
+                objectHost.Values.Add("assigned", assigned);
+                stringHost.Values.Add(1, "Configured");
 
                 using var objectSerialized = new SerializedObject(objectHost);
                 using var stringSerialized = new SerializedObject(stringHost);
                 var objectValues = objectSerialized.FindProperty("m_Values");
                 var stringValues = stringSerialized.FindProperty("m_Values");
 
+                Assert.IsTrue(FieldDrawerHelper.HasNoNullDictionaryValues(objectValues));
+                Assert.IsTrue(FieldDrawerHelper.HasNoEmptyDictionaryValues(stringValues));
+
+                objectHost.Values.Add("missing", null);
+                stringHost.Values.Add(2, string.Empty);
+                objectSerialized.Update();
+                stringSerialized.Update();
+
                 Assert.IsFalse(FieldDrawerHelper.HasNoNullDictionaryValues(objectValues));
                 Assert.IsFalse(FieldDrawerHelper.HasNoEmptyDictionaryValues(stringValues));
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(assigned);
                 UnityEngine.Object.DestroyImmediate(objectHost);
                 UnityEngine.Object.DestroyImmediate(stringHost);
             }
         }
 
         [Test]
-        public void NotEmptyDrawer_IgnoresNullKeyPlaceholderRows()
+        public void NotEmptyDrawer_DistinguishesEffectiveEntriesFromNullKeyPlaceholderRows()
         {
-            var host = ScriptableObject.CreateInstance<ObjectKeyHost>();
+            var placeholderHost = ScriptableObject.CreateInstance<ObjectKeyHost>();
+            var populatedHost = ScriptableObject.CreateInstance<ObjectKeyHost>();
+            var assignedKey = new GameObject("assigned-dictionary-key");
             try
             {
-                using var serialized = new SerializedObject(host);
-                var dictionary = serialized.FindProperty("m_Values");
-                dictionary.arraySize = 2;
-                serialized.ApplyModifiedPropertiesWithoutUndo();
-                serialized.Update();
+                using var placeholderSerialized = new SerializedObject(placeholderHost);
+                var placeholderDictionary = placeholderSerialized.FindProperty("m_Values");
+                placeholderDictionary.arraySize = 2;
+                placeholderSerialized.ApplyModifiedPropertiesWithoutUndo();
+                placeholderSerialized.Update();
 
-                dictionary = serialized.FindProperty("m_Values");
-                Assert.AreEqual(2, dictionary.arraySize);
-                Assert.IsFalse(FieldDrawerHelper.HasEffectiveDictionaryEntries(dictionary));
+                placeholderDictionary = placeholderSerialized.FindProperty("m_Values");
+                Assert.AreEqual(2, placeholderDictionary.arraySize);
+                Assert.IsFalse(FieldDrawerHelper.HasEffectiveDictionaryEntries(placeholderDictionary));
+
+                populatedHost.Values.Add(assignedKey, "Configured");
+                using var populatedSerialized = new SerializedObject(populatedHost);
+                var populatedDictionary = populatedSerialized.FindProperty("m_Values");
+                Assert.IsTrue(FieldDrawerHelper.HasEffectiveDictionaryEntries(populatedDictionary));
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(host);
+                UnityEngine.Object.DestroyImmediate(assignedKey);
+                UnityEngine.Object.DestroyImmediate(placeholderHost);
+                UnityEngine.Object.DestroyImmediate(populatedHost);
             }
         }
 
