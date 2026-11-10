@@ -95,6 +95,8 @@ Invalid fields display an error in the Inspector. The owning component, GameObje
 
 Validation failures appear beside the affected field in the Inspector. Invalid GameObjects have red labels in the Hierarchy. Invalid scenes and supported assets show an error badge in the Project window at any icon zoom level, making invalid content visible without opening every object.
 
+<img src="docs/images/validation-overview.png" width="775" alt="Unity Editor showing validation messages in the Inspector, red invalid labels in the Hierarchy, and error badges beside invalid scenes in the Project window">
+
 ## Attribute reference
 
 ### `[NotNull]`
