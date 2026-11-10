@@ -102,27 +102,6 @@ namespace UValidation.Tests
         }
 
         [Test]
-        public void ProjectFeedback_LabelLayout_MatchesEditorVersion()
-        {
-            var source = new Rect(10.0f, 20.0f, 100.0f, 18.0f);
-            var adjusted = EditorGuiCompatibility.GetProjectWindowLabelRect(source);
-            var padding = EditorGuiCompatibility.CreateProjectWindowLabelPadding();
-
-#if UNITY_6000_6_OR_NEWER
-            Assert.AreEqual(source, adjusted);
-            Assert.AreEqual(19, padding.left);
-            Assert.AreEqual(0, padding.top);
-#else
-            Assert.AreEqual(7.0f, adjusted.x);
-            Assert.AreEqual(19.0f, adjusted.y);
-            Assert.AreEqual(21, padding.left);
-            Assert.AreEqual(1, padding.top);
-#endif
-            Assert.AreEqual(2, padding.right);
-            Assert.AreEqual(1, padding.bottom);
-        }
-
-        [Test]
         public void HeaderFeedback_MessageHeight_IsReadable()
         {
             if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)

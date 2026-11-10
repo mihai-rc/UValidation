@@ -10,33 +10,6 @@ namespace UValidation.Editor
     internal static class EditorGuiCompatibility
     {
         /// <summary>
-        /// Gets the rectangle used to overlay a Project-window item label.
-        /// </summary>
-        /// <param name="selectionRect"> The rectangle supplied by Unity's Project-window callback. </param>
-        /// <returns> The rectangle that aligns with Unity's item label. </returns>
-        internal static Rect GetProjectWindowLabelRect(Rect selectionRect)
-        {
-#if !UNITY_6000_6_OR_NEWER
-            selectionRect.x -= 3.0f;
-            selectionRect.y -= 1.0f;
-#endif
-            return selectionRect;
-        }
-
-        /// <summary>
-        /// Creates the padding used to align a Project-window item label after its asset icon.
-        /// </summary>
-        /// <returns> The version-appropriate label padding. </returns>
-        internal static RectOffset CreateProjectWindowLabelPadding()
-        {
-#if UNITY_6000_6_OR_NEWER
-            return new RectOffset(19, 2, 0, 1);
-#else
-            return new RectOffset(21, 2, 1, 1);
-#endif
-        }
-
-        /// <summary>
         /// Gets the label width Unity assigns to a reorderable collection element.
         /// </summary>
         /// <param name="elementRect"> The unmodified element rectangle supplied by Unity. </param>

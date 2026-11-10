@@ -12,8 +12,8 @@ namespace UValidation.Editor
     internal class ValidationFailureEditorHandler
     {
         private static GUIStyle s_HierarchyLabelStyle;
-        private static GUIStyle s_AssetLabelStyle;
         private static bool s_StylesUseProSkin;
+        private static GUIContent s_InvalidAssetIcon;
 
         static ValidationFailureEditorHandler()
         {
@@ -74,7 +74,7 @@ namespace UValidation.Editor
                 return;
             }
 
-            DrawRedLabel(selectionRect, gameObject.name, false);
+            DrawRedLabel(selectionRect, gameObject.name);
         }
 
         private static void OnProjectWindowItemOnGUI(string guid, Rect selectionRect)
@@ -87,12 +87,7 @@ namespace UValidation.Editor
                 return;
             }
 
-            var asset = AssetDatabase.LoadMainAssetAtPath(path);
-            if (asset != null)
-            {
-                selectionRect = EditorGuiCompatibility.GetProjectWindowLabelRect(selectionRect);
-                DrawRedLabel(selectionRect, asset.name, true);
-            }
+            DrawInvalidAssetIcon(selectionRect);
         }
 
         private static void OnPlayModeChanged(PlayModeStateChange state)
@@ -136,32 +131,49 @@ namespace UValidation.Editor
             ValidationMessageGui.DrawHelpBox(position, message, MessageType.Error);
         }
 
-        private static void DrawRedLabel(Rect selectionRect, string labelName, bool isAsset)
+        private static void DrawRedLabel(Rect selectionRect, string labelName)
         {
-            EditorGUI.LabelField(selectionRect, labelName, GetRedLabelStyle(isAsset));
+            EditorGUI.LabelField(selectionRect, labelName, GetRedLabelStyle());
         }
 
-        private static GUIStyle GetRedLabelStyle(bool isAsset)
+        private static void DrawInvalidAssetIcon(Rect selectionRect)
+        {
+            // Unity draws the Project name before this callback. Anchor a compact badge to the
+            // supplied item rect so it remains clear of the name in both list and grid views.
+            if (Event.current.type != EventType.Repaint || selectionRect.width <= 4.0f || selectionRect.height <= 4.0f)
+            {
+                return;
+            }
+
+            s_InvalidAssetIcon ??= EditorGUIUtility.IconContent("console.erroricon.sml");
+            if (s_InvalidAssetIcon == null)
+            {
+                return;
+            }
+
+            s_InvalidAssetIcon.tooltip = "Validation failed";
+            var size = Mathf.Min(16.0f, selectionRect.width - 4.0f, selectionRect.height - 4.0f);
+            var iconRect = new Rect(
+                selectionRect.xMax - size - 2.0f,
+                selectionRect.y + 2.0f,
+                size,
+                size);
+            GUI.Label(iconRect, s_InvalidAssetIcon, GUIStyle.none);
+        }
+
+        private static GUIStyle GetRedLabelStyle()
         {
             if (s_HierarchyLabelStyle == null || s_StylesUseProSkin != EditorGUIUtility.isProSkin)
             {
                 s_StylesUseProSkin = EditorGUIUtility.isProSkin;
-                s_HierarchyLabelStyle = CreateRedLabelStyle(false);
-                s_AssetLabelStyle = CreateRedLabelStyle(true);
+                s_HierarchyLabelStyle = new GUIStyle(GUI.skin.label)
+                {
+                    normal = { textColor = Color.red },
+                    padding = new RectOffset(18, 2, 0, 1)
+                };
             }
 
-            return isAsset ? s_AssetLabelStyle : s_HierarchyLabelStyle;
-        }
-
-        private static GUIStyle CreateRedLabelStyle(bool isAsset)
-        {
-            return new GUIStyle(GUI.skin.label)
-            {
-                normal = { textColor = Color.red },
-                padding = isAsset
-                    ? EditorGuiCompatibility.CreateProjectWindowLabelPadding()
-                    : new RectOffset(18, 2, 0, 1)
-            };
+            return s_HierarchyLabelStyle;
         }
     }
 }
