@@ -1,0 +1,117 @@
+# UValidation attribute showcase
+
+Open `Assets/Scenes/ValidationAttributeShowcase.unity` and select each numbered GameObject.
+The Inspector demonstrates supported values, validation failures, and deliberately unsupported
+attribute placements.
+
+## Sections
+
+1. `NotNull` — assigned and missing Unity object references, plus string and value-type misuse.
+2. `NotEmpty` — populated and empty strings and collections, plus scalar misuse.
+3. `HasNoNulls` — valid, null-containing, and empty Unity object collections, plus unsupported types.
+4. `HasNoEmpties` — valid, empty-containing, null-containing, and empty string collections, plus misuse.
+5. `IsValid` — valid and invalid nested objects, Unity's default initialization behavior, custom
+   nested validation, and misuse warnings.
+6. Combined attributes — useful combinations for required collections and nested objects.
+7. `IValidatable` — pass and fail examples of component-level custom validation.
+
+Green/valid values intentionally coexist with red/error and yellow/warning values, so the scene is
+intentionally invalid when editor validation is enabled.
+
+## Serialized dictionaries (Unity 6.6+)
+
+Open `Assets/Scenes/ValidationDictionaryShowcase.unity` to inspect Unity's native two-column
+dictionary editor with UValidation feedback.
+
+1. `NotEmpty` — populated and empty dictionaries, plus serialized null-key placeholder rows that
+   Unity excludes from the live dictionary.
+2. `HasNoNulls` — assigned, missing, and empty Unity object value dictionaries.
+3. `HasNoEmpties` — populated, empty-string, null-string, and empty dictionaries.
+4. `IsValid` — valid, invalid, and empty dictionaries of custom serializable values, plus a
+   primitive-value misuse warning. Invalid values produce one summary message above the dictionary
+   even when the field is collapsed; expanded entries retain their detailed messages.
+
+Dictionary collection rules inspect values only. Unity continues to own null-key and duplicate-key
+diagnostics, and UValidation leaves the native dictionary row UI unchanged.
+
+## Inheritance chains
+
+Open `Assets/Scenes/ValidationInheritanceShowcase.unity`. Every numbered object has the same
+three-level component hierarchy:
+
+`InheritanceShowcaseBase -> InheritanceShowcaseMiddle -> InheritanceShowcase`
+
+The base declares a private `[NotNull]` reference and a `[field: SerializeField, NotEmpty]`
+auto-property. The middle class declares a private `[NotEmpty]` string, and the concrete class
+declares a private `[NotNull]` reference. Each invalid example changes exactly one value.
+
+| Example | Expected result |
+| --- | --- |
+| `01 - All Levels Valid` | Pass |
+| `02 - Base Private Field Missing` | Fail |
+| `03 - Middle Private Field Empty` | Fail |
+| `04 - Derived Private Field Missing` | Fail |
+| `05 - Base Auto-Property Empty` | Fail |
+
+Validation checks attributed fields at every inheritance level, including private fields and
+serialized auto-property backing fields. Each field is checked once. Select each example to
+compare its field messages with its hierarchy validation status.
+
+Run `UValidation.Showcase.Tests.InheritanceShowcaseTests` in the EditMode Test Runner. The five
+cases assert the results above and should all pass. The tests verify the saved example values
+first and load the scene as a preview, preserving the user's open scenes.
+
+## ScriptableObject assets
+
+Browse `Assets/Showcase/ScriptableObjects` in the Project window. The folder contains one valid
+asset, focused invalid assets for every validation path, a combined-failures asset, and an assigned
+reference asset under `_Shared`.
+
+1. `01 - Valid` — every attribute and the custom validation rule pass.
+2. `02 - NotNull Failure` — the required asset reference is missing.
+3. `03 - NotEmpty Failure` — the required name and value collection are empty.
+4. `04 - HasNoNulls Failure` — the reference collection contains a null element.
+5. `05 - HasNoEmpties Failure` — the string collection contains an empty element.
+6. `06 - IsValid Failure` — recursively validated nested data is incomplete.
+7. `07 - IValidatable Failure` — custom asset-level validation fails.
+8. `08 - Combined Failures` — all failure paths coexist in one asset.
+
+With validation enabled, invalid assets are labelled red in the Project window and Unity prevents
+their changes from being saved. Select an asset to inspect its field-level HelpBoxes.
+
+## Rebuilding the showcases
+
+Use `UValidation > Rebuild Showcase Scene`. The builder writes the intentionally invalid scene and
+selects the overview object.
+
+Use `UValidation > Rebuild ScriptableObject Showcase` to recreate every generated `.asset` file
+with deterministic values. The builder selects the valid asset when it finishes.
+
+Use `UValidation > Rebuild Inheritance Showcase` to regenerate the inheritance scene. Close that
+scene before rebuilding it; the builder preserves the other open scenes.
+
+Use `UValidation > Rebuild Dictionary Showcase` to regenerate the Unity 6.6 dictionary scene. Close
+that scene before rebuilding it; the builder preserves the other open scenes.
+
+These builders deliberately create invalid content. When **Block Invalid Saves** is enabled,
+UValidation reports those failures after the new or replacement assets are imported. Temporarily
+disable that policy under **Project Settings > UValidation** if you want to rebuild without those
+expected errors.
+
+## Expected semantics
+
+- Empty collections pass `HasNoNulls` and `HasNoEmpties`; those attributes validate elements,
+  not collection size. Combine them with `NotEmpty` when both guarantees are required.
+- `IsValid` traverses a custom serializable class or struct, or every existing element of an array
+  or list of such types, or every effective value of a supported dictionary. Null and empty
+  collections pass, and null elements are skipped. Inline serialized values are normally
+  materialized by Unity with default field values.
+- Collection validation failures include their index, for example `m_Items[1].m_Name`.
+- Dictionary value failures include the serialized entry index and value segment, for example
+  `m_Items[1].Value.m_Name`.
+- Unsupported placements produce Inspector warnings when a property drawer can inspect them.
+  Some unsupported placements are runtime no-ops; they are included to make that behavior visible.
+- Attribute validation is limited to field types Unity represents in the Inspector: `NotNull`
+  accepts `UnityEngine.Object` references, while `HasNoNulls` accepts arrays/lists of those
+  references and Unity 6.6+ dictionaries whose values are those references. The equivalent fluent
+  rules remain available for broader runtime values and collections.

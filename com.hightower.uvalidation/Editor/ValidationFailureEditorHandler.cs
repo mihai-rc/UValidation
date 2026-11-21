@@ -1,0 +1,182 @@
+using UnityEditor;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+namespace UValidation.Editor
+{
+    /// <summary>
+    /// Displays validation failures in the Inspector, Hierarchy, and Project windows and blocks Play Mode
+    /// when the active scene is invalid.
+    /// </summary>
+    [InitializeOnLoad]
+    internal class ValidationFailureEditorHandler
+    {
+        private static GUIStyle s_HierarchyLabelStyle;
+        private static bool s_StylesUseProSkin;
+        private static GUIContent s_InvalidAssetIcon;
+
+        static ValidationFailureEditorHandler()
+        {
+            EditorEntityIdCompatibility.RegisterHierarchyWindowItemCallback(OnHierarchyWindowItemOnGUI);
+            EditorApplication.projectWindowItemOnGUI += OnProjectWindowItemOnGUI;
+            EditorApplication.playModeStateChanged += OnPlayModeChanged;
+            UnityEditor.Editor.finishedDefaultHeaderGUI += OnFinishedDefaultHeaderGUI;
+        }
+
+        /// <summary>
+        /// Counts the Inspector header targets that fail validation.
+        /// </summary>
+        /// <param name="targets"> The objects represented by the Inspector header. </param>
+        /// <returns> The number of invalid targets. </returns>
+        internal static int CountInvalidHeaderTargets(UnityEngine.Object[] targets)
+        {
+            var invalidCount = 0;
+            foreach (var target in targets)
+            {
+                // A prefab asset draws its importer header as well as its own; validating both would show two boxes.
+                if (target == null || target is AssetImporter)
+                {
+                    continue;
+                }
+
+                if (!ValidationResultCache.IsObjectValid(target))
+                {
+                    invalidCount++;
+                }
+            }
+
+            return invalidCount;
+        }
+
+        /// <summary>
+        /// Gets whether a Project-window asset participates in validation feedback.
+        /// </summary>
+        /// <param name="path"> The project-relative asset path. </param>
+        /// <returns> True for scenes, prefabs, and ScriptableObject asset files. </returns>
+        internal static bool IsSupportedProjectAssetPath(string path)
+        {
+            return !string.IsNullOrEmpty(path)
+                && (path.EndsWith(".unity", System.StringComparison.OrdinalIgnoreCase)
+                    || path.EndsWith(".prefab", System.StringComparison.OrdinalIgnoreCase)
+                    || path.EndsWith(".asset", System.StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static void OnHierarchyWindowItemOnGUI(EntityId entityId, Rect selectionRect)
+        {
+            var gameObject = EditorUtility.EntityIdToObject(entityId) as GameObject;
+            if (gameObject == null)
+            {
+                return;
+            }
+
+            if (ValidationResultCache.IsObjectValid(gameObject))
+            {
+                return;
+            }
+
+            DrawRedLabel(selectionRect, gameObject.name);
+        }
+
+        private static void OnProjectWindowItemOnGUI(string guid, Rect selectionRect)
+        {
+            var path = AssetDatabase.GUIDToAssetPath(guid);
+            if (string.IsNullOrEmpty(path)
+                || !IsSupportedProjectAssetPath(path)
+                || ValidationResultCache.IsAssetValid(path))
+            {
+                return;
+            }
+
+            DrawInvalidAssetIcon(selectionRect);
+        }
+
+        private static void OnPlayModeChanged(PlayModeStateChange state)
+        {
+            if (!UValidationProjectSettings.Instance.BlockPlayMode)
+            {
+                return;
+            }
+
+            if (state != PlayModeStateChange.ExitingEditMode)
+            {
+                return;
+            }
+
+            var scene = SceneManager.GetActiveScene();
+            if (ValidationHelper.IsSceneValid(ref scene, true))
+            {
+                return;
+            }
+
+            ValidationFailedDialog.PromptPlayModeFailed();
+            EditorApplication.isPlaying = false;
+        }
+
+        private static void OnFinishedDefaultHeaderGUI(UnityEditor.Editor editor)
+        {
+            var targets = editor.targets;
+            var invalidCount = CountInvalidHeaderTargets(targets);
+            if (invalidCount == 0)
+            {
+                return;
+            }
+
+            var message = targets.Length == 1
+                ? "Validation Failed: This object contains invalid data."
+                : $"Validation Failed: {invalidCount} of {targets.Length} selected objects contain invalid data.";
+
+            var height = ValidationMessageGui.GetHelpBoxHeight(
+                EditorGUIUtility.currentViewWidth,
+                message);
+
+            var position = EditorGUILayout.GetControlRect(false, height);
+            ValidationMessageGui.DrawHelpBox(position, message, MessageType.Error);
+        }
+
+        private static void DrawRedLabel(Rect selectionRect, string labelName)
+        {
+            EditorGUI.LabelField(selectionRect, labelName, GetRedLabelStyle());
+        }
+
+        private static void DrawInvalidAssetIcon(Rect selectionRect)
+        {
+            // Unity draws the Project name before this callback. Anchor a compact badge to the
+            // supplied item rect so it remains clear of the name in both list and grid views.
+            if (Event.current.type != EventType.Repaint || selectionRect.width <= 4.0f || selectionRect.height <= 4.0f)
+            {
+                return;
+            }
+
+            s_InvalidAssetIcon ??= EditorGUIUtility.IconContent("console.erroricon.sml");
+            if (s_InvalidAssetIcon is null)
+            {
+                return;
+            }
+
+            s_InvalidAssetIcon.tooltip = "Validation failed";
+            var size = Mathf.Min(16.0f, selectionRect.width - 4.0f, selectionRect.height - 4.0f);
+            var iconRect = new Rect(
+                selectionRect.xMax - size - 2.0f,
+                selectionRect.y + 2.0f,
+                size,
+                size);
+
+            GUI.Label(iconRect, s_InvalidAssetIcon, GUIStyle.none);
+        }
+
+        private static GUIStyle GetRedLabelStyle()
+        {
+            if (s_HierarchyLabelStyle is null || s_StylesUseProSkin != EditorGUIUtility.isProSkin)
+            {
+                s_StylesUseProSkin = EditorGUIUtility.isProSkin;
+                s_HierarchyLabelStyle = new GUIStyle(GUI.skin.label)
+                {
+                    normal = { textColor = Color.red },
+                    padding = new RectOffset(18, 2, 0, 1)
+                };
+            }
+
+            return s_HierarchyLabelStyle;
+        }
+    }
+}

@@ -1,0 +1,25 @@
+using System;
+using System.Runtime.CompilerServices;
+
+namespace UValidation
+{
+    /// <summary>
+    /// Specifies that a serialized array or list of Unity object references, or a supported dictionary
+    /// with Unity object values, must not contain null values.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Field)]
+    public class HasNoNullsAttribute : ValidationPropertyAttribute
+    {
+        /// <summary>
+        /// Creates a new <see cref="HasNoNullsAttribute"/> instance.
+        /// </summary>
+        /// <param name="filePath"> The source file containing the annotated field. </param>
+        /// <param name="lineNumber"> The source line containing the annotated field. </param>
+        public HasNoNullsAttribute(
+            [CallerFilePath] string filePath = "",
+            [CallerLineNumber] int lineNumber = 0)
+            : base(filePath, lineNumber, true)
+        {
+        }
+    }
+}

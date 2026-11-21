@@ -1,0 +1,16 @@
+{
+    "name": "UValidation.Showcase",
+    "rootNamespace": "UValidation.Showcase",
+    "references": [
+        "UValidation"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
