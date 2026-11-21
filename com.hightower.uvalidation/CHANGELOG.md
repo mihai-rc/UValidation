@@ -2,6 +2,12 @@
 
 All notable changes to UValidation are documented in this file.
 
+## [0.1.1] - 2026-11-21
+
+### Fixed
+
+- `[IsValid]` now traverses collection-valued dictionary entries and no longer reports valid object-reference arrays as failed in the Inspector.
+
 ## [0.1.0] - 2026-11-08
 
 ### Added

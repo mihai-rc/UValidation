@@ -5,7 +5,7 @@ namespace UValidation
 {
     /// <summary>
     /// Recursively validates a custom serializable class or struct, each element of an array or list of that type,
-    /// or each value in a supported dictionary of that type.
+    /// or each value in a supported dictionary. Dictionary values may themselves be arrays or lists.
     /// </summary>
     /// <remarks>
     /// On a [SerializeReference] field declared as an interface, an abstract class, or object, each value is

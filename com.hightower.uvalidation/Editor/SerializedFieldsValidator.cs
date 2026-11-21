@@ -248,6 +248,20 @@ namespace UValidation.Editor
                 return;
             }
 
+            if (property.isArray && property.propertyType != SerializedPropertyType.String)
+            {
+                for (var i = 0; i < property.arraySize; i++)
+                {
+                    ValidateNestedSerializedObject(
+                        property.GetArrayElementAtIndex(i),
+                        $"{propertyPath}[{i}]",
+                        validation,
+                        traversalState);
+                }
+
+                return;
+            }
+
             object value;
             try
             {
@@ -321,7 +335,7 @@ namespace UValidation.Editor
                 {
                     if (entry.Value is not null)
                     {
-                        ValidateNestedObject(
+                        ValidateNestedObjectOrCollection(
                             entry.Value,
                             $"{fieldName}[{dictionaryIndex}].Value",
                             validation,
@@ -344,7 +358,44 @@ namespace UValidation.Editor
             {
                 if (element is not null)
                 {
-                    ValidateNestedObject(element, $"{fieldName}[{index}]", validation, traversalState);
+                    ValidateNestedObjectOrCollection(
+                        element,
+                        $"{fieldName}[{index}]",
+                        validation,
+                        traversalState);
+                }
+
+                index++;
+            }
+        }
+
+        private static void ValidateNestedObjectOrCollection(
+            object value,
+            string valuePath,
+            Validation validation,
+            ValidationTraversalState traversalState)
+        {
+            if (!UnitySerializedCollectionUtility.IsCollection(value.GetType()))
+            {
+                ValidateNestedObject(value, valuePath, validation, traversalState);
+                return;
+            }
+
+            if (value is not IEnumerable collection)
+            {
+                return;
+            }
+
+            var index = 0;
+            foreach (var element in collection)
+            {
+                if (element is not null)
+                {
+                    ValidateNestedObjectOrCollection(
+                        element,
+                        $"{valuePath}[{index}]",
+                        validation,
+                        traversalState);
                 }
 
                 index++;

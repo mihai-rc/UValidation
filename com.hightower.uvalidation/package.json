@@ -1,6 +1,6 @@
 {
   "name": "com.hightower.uvalidation",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "UValidation",
   "description": "Inspector and runtime validation utilities for Unity.",
   "unity": "6000.3",

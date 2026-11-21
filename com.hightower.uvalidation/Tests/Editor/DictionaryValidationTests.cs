@@ -71,6 +71,20 @@ namespace UValidation.Tests
             public Dictionary<string, ItemData> Values => m_Values;
         }
 
+        private sealed class NestedCollectionValuesHost : ScriptableObject
+        {
+            [SerializeField, IsValid] private Dictionary<string, ItemData[]> m_Values = new();
+
+            public Dictionary<string, ItemData[]> Values => m_Values;
+        }
+
+        private sealed class ObjectCollectionValuesHost : ScriptableObject
+        {
+            [SerializeField, IsValid] private Dictionary<string, AnimationClip[]> m_Values = new();
+
+            public Dictionary<string, AnimationClip[]> Values => m_Values;
+        }
+
         [Test]
         public void NotEmpty_EmptyDictionary_FailsAttributeValidation()
         {
@@ -188,6 +202,44 @@ namespace UValidation.Tests
         }
 
         [Test]
+        public void IsValid_DictionaryCollectionValue_ReportsIndexedElementPath()
+        {
+            var host = ScriptableObject.CreateInstance<NestedCollectionValuesHost>();
+            try
+            {
+                host.Values.Add("invalid", new[] { new ItemData(string.Empty) });
+
+                using var validation = ValidateAttributes(host);
+                Assert.IsTrue(validation.Failed);
+                LogAssert.Expect(
+                    LogType.Error,
+                    new Regex(@" - Variable: m_Values\[0\]\.Value\[0\]\.m_Name\r?\n"));
+                validation.Report();
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(host);
+            }
+        }
+
+        [Test]
+        public void IsValid_DictionaryCollectionTargets_AreClassifiedAsDictionaryValues()
+        {
+            var nestedField = GetValuesField<NestedCollectionValuesHost>();
+            var objectField = GetValuesField<ObjectCollectionValuesHost>();
+
+            Assert.IsNotNull(nestedField);
+            Assert.IsNotNull(objectField);
+            Assert.AreEqual(
+                IsValidTargetKind.DictionaryValues,
+                ValidationAttributeTargetUtility.GetIsValidTargetKind(nestedField));
+            Assert.AreEqual(
+                IsValidTargetKind.DictionaryValues,
+                ValidationAttributeTargetUtility.GetIsValidTargetKind(objectField));
+        }
+
+        [Test]
         public void IsNestedSerializedPropertyValid_CollapsedDictionaryWithInvalidValue_ReturnsFalse()
         {
             var host = ScriptableObject.CreateInstance<NestedValuesHost>();
@@ -228,6 +280,52 @@ namespace UValidation.Tests
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(host);
+            }
+        }
+
+        [Test]
+        public void IsNestedSerializedPropertyValid_InvalidDictionaryCollectionValue_ReturnsFalse()
+        {
+            var host = ScriptableObject.CreateInstance<NestedCollectionValuesHost>();
+            try
+            {
+                host.Values.Add("invalid", new[] { new ItemData(string.Empty) });
+                using var serialized = new SerializedObject(host);
+                var dictionary = serialized.FindProperty("m_Values");
+                var field = GetValuesField<NestedCollectionValuesHost>();
+
+                Assert.IsNotNull(field);
+                Assert.IsFalse(SerializedFieldsValidator.IsNestedSerializedPropertyValid(
+                    dictionary,
+                    ValidationAttributeTargetUtility.GetIsValidTargetKind(field)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(host);
+            }
+        }
+
+        [Test]
+        public void IsNestedSerializedPropertyValid_ObjectReferenceArrayValue_ReturnsTrue()
+        {
+            var host = ScriptableObject.CreateInstance<ObjectCollectionValuesHost>();
+            var clip = new AnimationClip();
+            try
+            {
+                host.Values.Add("clips", new[] { clip });
+                using var serialized = new SerializedObject(host);
+                var dictionary = serialized.FindProperty("m_Values");
+                var field = GetValuesField<ObjectCollectionValuesHost>();
+
+                Assert.IsNotNull(field);
+                Assert.IsTrue(SerializedFieldsValidator.IsNestedSerializedPropertyValid(
+                    dictionary,
+                    ValidationAttributeTargetUtility.GetIsValidTargetKind(field)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(clip);
                 UnityEngine.Object.DestroyImmediate(host);
             }
         }
@@ -472,7 +570,12 @@ namespace UValidation.Tests
 
         private static FieldInfo GetNestedValuesField()
         {
-            return typeof(NestedValuesHost).GetField("m_Values", BindingFlags.Instance | BindingFlags.NonPublic);
+            return GetValuesField<NestedValuesHost>();
+        }
+
+        private static FieldInfo GetValuesField<THost>()
+        {
+            return typeof(THost).GetField("m_Values", BindingFlags.Instance | BindingFlags.NonPublic);
         }
 
         private static string GetDictionaryValuePath(SerializedProperty dictionary, string key)

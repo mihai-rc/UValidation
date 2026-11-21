@@ -44,7 +44,7 @@ Then open **Window > Package Manager**, select **Install package by name**, ente
 To install a specific release directly from GitHub, select **Install package from git URL** and enter:
 
 ```text
-https://github.com/mihai-rc/UValidation.git?path=/com.hightower.uvalidation#v0.1.0
+https://github.com/mihai-rc/UValidation.git?path=/com.hightower.uvalidation#v0.1.1
 ```
 
 The equivalent `Packages/manifest.json` dependency is:
@@ -52,7 +52,7 @@ The equivalent `Packages/manifest.json` dependency is:
 ```json
 {
   "dependencies": {
-    "com.hightower.uvalidation": "https://github.com/mihai-rc/UValidation.git?path=/com.hightower.uvalidation#v0.1.0"
+    "com.hightower.uvalidation": "https://github.com/mihai-rc/UValidation.git?path=/com.hightower.uvalidation#v0.1.1"
   }
 }
 ```
@@ -171,7 +171,7 @@ must also contain an entry.
 
 ### `[IsValid]`
 
-Use `[IsValid]` for fields of custom serialized types whose own attributed fields and custom validation rules must pass. It supports serializable classes and structs, arrays and lists of those types, Unity 6.6+ dictionary values, and individual or collected `[SerializeReference]` values. A summary message remains visible above a collapsed invalid field so the nested failure is easy to locate.
+Use `[IsValid]` for fields of custom serialized types whose own attributed fields and custom validation rules must pass. It supports serializable classes and structs, arrays and lists of those types, Unity 6.6+ dictionary values (including array or list values), and individual or collected `[SerializeReference]` values. A summary message remains visible above a collapsed invalid field so the nested failure is easy to locate.
 
 ```csharp
 // Serializable class and struct
@@ -182,6 +182,7 @@ Use `[IsValid]` for fields of custom serialized types whose own attributed field
 [SerializeField, IsValid] private ItemData[] m_Items;
 [SerializeField, IsValid] private List<ItemData> m_ItemList;
 [SerializeField, IsValid] private Dictionary<string, ItemData> m_ItemMap;
+[SerializeField, IsValid] private Dictionary<string, ItemData[]> m_ItemGroups;
 
 // Individual, array, and list managed references
 [SerializeReference, IsValid] private IRule m_Rule;

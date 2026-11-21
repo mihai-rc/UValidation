@@ -25,7 +25,7 @@ namespace UValidation.Editor
         Collection,
 
         /// <summary>
-        /// The target is a dictionary whose values are custom-serializable objects.
+        /// The target is a dictionary whose values are custom-serializable objects or serialized collections.
         /// </summary>
         DictionaryValues
     }
@@ -111,6 +111,8 @@ namespace UValidation.Editor
                 && (type.IsClass || IsSerializableCustomStruct(type))
                 && type != typeof(string)
                 && !typeof(UnityEngine.Object).IsAssignableFrom(type)
+                && !UnitySerializedCollectionUtility.IsCollection(type)
+                && !UnitySerializedCollectionUtility.IsDictionary(type)
                 && !SerializedFieldsValidator.IsUnitySerializableBuiltInType(type)
                 && type.IsDefined(typeof(SerializableAttribute), false);
         }
@@ -129,7 +131,8 @@ namespace UValidation.Editor
         {
             if (UnitySerializedCollectionUtility.TryGetDictionaryTypes(fieldType, out _, out var valueType))
             {
-                return !isManagedReference && IsTraversableType(valueType, false, false)
+                return !isManagedReference &&
+                    (UnitySerializedCollectionUtility.TryGetElementType(valueType, out _) || IsTraversableType(valueType, false, false))
                     ? IsValidTargetKind.DictionaryValues
                     : IsValidTargetKind.Unsupported;
             }
