@@ -44,7 +44,7 @@ Then open **Window > Package Manager**, select **Install package by name**, ente
 To install a specific release directly from GitHub, select **Install package from git URL** and enter:
 
 ```text
-https://github.com/mihai-rc/UValidation.git?path=/com.hightower.uvalidation#v0.1.1
+https://github.com/mihai-rc/UValidation.git?path=/com.hightower.uvalidation#v0.1.2
 ```
 
 The equivalent `Packages/manifest.json` dependency is:
@@ -52,7 +52,7 @@ The equivalent `Packages/manifest.json` dependency is:
 ```json
 {
   "dependencies": {
-    "com.hightower.uvalidation": "https://github.com/mihai-rc/UValidation.git?path=/com.hightower.uvalidation#v0.1.1"
+    "com.hightower.uvalidation": "https://github.com/mihai-rc/UValidation.git?path=/com.hightower.uvalidation#v0.1.2"
   }
 }
 ```

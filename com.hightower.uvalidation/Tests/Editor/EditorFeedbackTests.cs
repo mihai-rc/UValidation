@@ -124,6 +124,62 @@ namespace UValidation.Tests
         }
 
         [Test]
+        public void TryGetCachedAssetResult_UnvalidatedAsset_ReportsNoResult()
+        {
+            var path = $"{k_TestFolderPath}/Unvalidated.prefab";
+            SaveAsPrefab(CreateProbeObject("Unvalidated", string.Empty), path);
+
+            ValidationResultCache.Clear();
+
+            Assert.IsFalse(ValidationResultCache.TryGetCachedAssetResult(path, out var isValid));
+            Assert.IsTrue(isValid);
+        }
+
+        [Test]
+        public void ScheduleAssetValidation_InvalidPrefab_DefersValidationUntilPendingAssetsRun()
+        {
+            var path = $"{k_TestFolderPath}/DeferredInvalid.prefab";
+            SaveAsPrefab(CreateProbeObject("DeferredInvalid", string.Empty), path);
+            ValidationResultCache.Clear();
+
+            ValidationResultCache.ScheduleAssetValidation(path);
+            Assert.IsFalse(ValidationResultCache.TryGetCachedAssetResult(path, out _));
+
+            ValidationResultCache.ValidatePendingAssets();
+
+            Assert.IsTrue(ValidationResultCache.TryGetCachedAssetResult(path, out var isValid));
+            Assert.IsFalse(isValid);
+        }
+
+        [Test]
+        public void ValidatePendingAssets_ValidPrefab_CachesValidResult()
+        {
+            var path = $"{k_TestFolderPath}/DeferredValid.prefab";
+            SaveAsPrefab(CreateProbeObject("DeferredValid", VALID_VALUE), path);
+            ValidationResultCache.Clear();
+
+            ValidationResultCache.ScheduleAssetValidation(path);
+            ValidationResultCache.ValidatePendingAssets();
+
+            Assert.IsTrue(ValidationResultCache.TryGetCachedAssetResult(path, out var isValid));
+            Assert.IsTrue(isValid);
+        }
+
+        [Test]
+        public void Clear_AfterDeferredValidation_DiscardsCachedAssetResult()
+        {
+            var path = $"{k_TestFolderPath}/DeferredCleared.prefab";
+            SaveAsPrefab(CreateProbeObject("DeferredCleared", string.Empty), path);
+            ValidationResultCache.Clear();
+
+            ValidationResultCache.ScheduleAssetValidation(path);
+            ValidationResultCache.ValidatePendingAssets();
+            ValidationResultCache.Clear();
+
+            Assert.IsFalse(ValidationResultCache.TryGetCachedAssetResult(path, out _));
+        }
+
+        [Test]
         public void EveryTargetPasses_MultiSelectionWithInvalidTarget_ReturnsFalse()
         {
             var valid = CreateScriptableObject(VALID_VALUE);

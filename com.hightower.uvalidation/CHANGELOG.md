@@ -2,6 +2,12 @@
 
 All notable changes to UValidation are documented in this file.
 
+## [0.1.2] - 2026-11-28
+
+### Fixed
+
+- The Project window no longer loads scenes and prefabs while it draws its rows. Validation of visible assets now runs on the next Editor update, which removes the "GUI Window tried to begin rendering", unbalanced GUIClip, and `device.IsInsideFrame()` errors logged when the Editor opens.
+
 ## [0.1.1] - 2026-11-21
 
 ### Fixed

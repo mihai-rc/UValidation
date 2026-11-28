@@ -80,9 +80,19 @@ namespace UValidation.Editor
         private static void OnProjectWindowItemOnGUI(string guid, Rect selectionRect)
         {
             var path = AssetDatabase.GUIDToAssetPath(guid);
-            if (string.IsNullOrEmpty(path)
-                || !IsSupportedProjectAssetPath(path)
-                || ValidationResultCache.IsAssetValid(path))
+            if (string.IsNullOrEmpty(path) || !IsSupportedProjectAssetPath(path))
+            {
+                return;
+            }
+
+            // Validating here would load scenes and prefabs in the middle of the Project window's GUI pass.
+            if (!ValidationResultCache.TryGetCachedAssetResult(path, out var isValid))
+            {
+                ValidationResultCache.ScheduleAssetValidation(path);
+                return;
+            }
+
+            if (isValid)
             {
                 return;
             }

@@ -10,14 +10,19 @@ namespace UValidation.Editor
     /// </summary>
     /// <remarks>
     /// Results are discarded whenever the Editor reports a change to objects, the hierarchy, or the project,
-    /// and after undo or redo. The cache is bypassed in Play Mode, where gameplay code changes objects
-    /// without reporting it.
+    /// and after undo or redo. <see cref="IsObjectValid"/> and <see cref="IsAssetValid"/> bypass the cache in
+    /// Play Mode, where gameplay code changes objects without reporting it. Deferred asset results from
+    /// <see cref="ScheduleAssetValidation"/> are cached in every mode, because re-validating stored assets on
+    /// every Project window repaint would reload them continuously.
     /// </remarks>
     [InitializeOnLoad]
     internal static class ValidationResultCache
     {
         private static readonly Dictionary<UnityEngine.Object, bool> s_ObjectResults = new();
         private static readonly Dictionary<string, bool> s_AssetResults = new(StringComparer.Ordinal);
+        private static readonly HashSet<string> s_PendingAssetPaths = new(StringComparer.Ordinal);
+
+        private static bool s_IsAssetValidationScheduled;
 
         /// <summary>
         /// Raised after cached validation results are invalidated.
@@ -76,6 +81,77 @@ namespace UValidation.Editor
             }
 
             return isValid;
+        }
+
+        /// <summary>
+        /// Gets the cached validation result for a stored asset without validating it.
+        /// </summary>
+        /// <param name="assetPath"> The asset path to look up. </param>
+        /// <param name="isValid"> The cached result, or true when no result is cached. </param>
+        /// <returns> True if a result is cached for the asset; otherwise, false. </returns>
+        /// <remarks>
+        /// Unlike <see cref="IsAssetValid"/>, this never loads the asset, so it is safe to call from GUI callbacks.
+        /// Pair it with <see cref="ScheduleAssetValidation"/> to fill the cache outside the GUI pass.
+        /// </remarks>
+        internal static bool TryGetCachedAssetResult(string assetPath, out bool isValid)
+        {
+            if (s_AssetResults.TryGetValue(assetPath, out isValid))
+            {
+                return true;
+            }
+
+            isValid = true;
+            return false;
+        }
+
+        /// <summary>
+        /// Queues a stored asset for validation on the next Editor update instead of validating it immediately.
+        /// </summary>
+        /// <param name="assetPath"> The asset path to validate. </param>
+        /// <remarks>
+        /// Validating a scene or prefab loads its contents into a preview scene. Doing that inside a GUI callback
+        /// starts other rendering in the middle of the GUI pass, which Unity reports as unbalanced GUI clips and
+        /// graphics-frame assertions. The Project window repaints once the queue finds an invalid asset.
+        /// </remarks>
+        internal static void ScheduleAssetValidation(string assetPath)
+        {
+            if (string.IsNullOrEmpty(assetPath) || !s_PendingAssetPaths.Add(assetPath) || s_IsAssetValidationScheduled)
+            {
+                return;
+            }
+
+            s_IsAssetValidationScheduled = true;
+            EditorApplication.delayCall += ValidatePendingAssets;
+        }
+
+        /// <summary>
+        /// Validates every queued asset, caches the results, and repaints the Project window when one is invalid.
+        /// </summary>
+        internal static void ValidatePendingAssets()
+        {
+            EditorApplication.delayCall -= ValidatePendingAssets;
+            s_IsAssetValidationScheduled = false;
+            if (s_PendingAssetPaths.Count == 0)
+            {
+                return;
+            }
+
+            var assetPaths = new List<string>(s_PendingAssetPaths);
+            s_PendingAssetPaths.Clear();
+
+            var hasInvalidAsset = false;
+            foreach (var assetPath in assetPaths)
+            {
+                var isValid = ValidateAsset(assetPath);
+                s_AssetResults[assetPath] = isValid;
+                hasInvalidAsset |= !isValid;
+            }
+
+            // Valid assets draw nothing, so only an invalid result changes what the Project window shows.
+            if (hasInvalidAsset)
+            {
+                EditorApplication.RepaintProjectWindow();
+            }
         }
 
         /// <summary>
